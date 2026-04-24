@@ -1,16 +1,27 @@
-\documentclass[11pt]{article}
-\usepackage[a4paper,margin=1in]{geometry}
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{itemize item}{\raise0.2ex\hbox{\tiny$\blacktriangleright$}}
+\setbeamertemplate{itemize subitem}{\raise0.2ex\hbox{\tiny$\bullet$}}
+\definecolor{hireblue}{HTML}{0F4C81}
+\definecolor{hireteal}{HTML}{0E7490}
+\setbeamercolor{structure}{fg=hireblue}
+\setbeamercolor{frametitle}{fg=white,bg=hireblue}
+\setbeamercolor{title}{fg=white,bg=hireblue}
+\setbeamercolor{block title}{fg=white,bg=hireteal}
+\setbeamercolor{block body}{bg=hireteal!8}
+\usepackage[english]{babel}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{lmodern}
 \usepackage{hyperref}
-\usepackage{enumitem}
 \usepackage{booktabs}
 \usepackage{graphicx}
-\usepackage{float}
-\usepackage{placeins}
 \usepackage{tabularx}
 \usepackage{xcolor}
+\usepackage{ragged2e}
 
 \graphicspath{{../diagrams/}}
 
@@ -18,216 +29,151 @@
   colorlinks=true,
   linkcolor=blue,
   urlcolor=blue,
-  pdftitle={Cloud Computing Project Plan - Hire Lens}
+  pdftitle={Hire Lens Presentation}
 }
 
-\title{Cloud Computing Project Plan\\\large Hire Lens}
+\title[Hire Lens]{Hire Lens}
+\subtitle{Cloud Computing Project Presentation}
 \author{Mohammed Zaid Shaikh \and Piotr Bartosiewicz \and Krzysztof Krawiec}
 \date{April 2026}
 
 \begin{document}
-\maketitle
-\tableofcontents
-\newpage
 
-\section{Brief Description}
-We propose a Telegram-first cloud platform that helps HR teams analyze GitHub profiles of candidates and compare them against job descriptions. The bot will generate a structured profile review from a GitHub username or profile URL, summarize public activity, highlight technical strengths and weak signals, and later support linked profiles such as GitHub, LinkedIn, and personal websites.
+\begin{frame}
+  \titlepage
+\end{frame}
 
-The first version focuses on safe, explainable automation: the bot will retrieve public GitHub information, run scoring and summarization workflows, and present a concise report to the HR user. In later iterations, the system can include AI-assisted compatibility scoring between a candidate profile and a job description.
+\begin{frame}{Agenda}
+  \tableofcontents
+\end{frame}
 
-A small web dashboard may be added later for admin and analytics tasks, but the Telegram bot remains the primary frontend.
+\section{Project Overview}
 
-To avoid dependence on paid AI APIs, the analysis layer can be powered by a self-hosted open-source model such as Qwen. The model would run behind an internal inference service and be called only by our backend, which keeps prompts, data, and costs under our control.
+\begin{frame}{The Problem}
+\begin{columns}[T,onlytextwidth]
+  \column{0.58\textwidth}
+  \justifying
+  Hire Lens helps HR teams screen candidates faster by turning public GitHub activity into a structured review and a job-match summary.
 
-\subsection{Recommended Hosting Choice}
-The easiest beginner-friendly hosting setup on Azure is:
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Azure Functions}: Telegram webhook, OAuth callbacks, report endpoints, and access-control logic.
-  \item \textbf{Azure Container Apps}: the self-hosted model-inference service, exposed only internally to the backend.
-  \item \textbf{Azure Static Web Apps}: a small admin dashboard if we need one.
-  \item \textbf{Azure Cosmos DB, Blob Storage, and Service Bus}: managed data, files, and background jobs.
-\end{itemize}
+  \vspace{0.5em}
+  The first release stays practical, explainable, and cheap to run while leaving room for AI-assisted ranking later.
+  \column{0.38\textwidth}
+  \begin{block}{Primary Users}
+    \begin{itemize}
+      \item Recruiters
+      \item Team leads
+      \item Platform admins
+    \end{itemize}
+  \end{block}
+\end{columns}
+\end{frame}
 
-This avoids AKS, avoids always-on virtual machines for the application layer, and keeps the infra simple enough for beginners while still being realistic for the course.
-
-\section{Main Features}
-\begin{enumerate}[leftmargin=*]
-  \item \textbf{Telegram profile review}: HR sends a GitHub username or link and gets a structured evaluation.
-  \item \textbf{Job description comparison}: HR can paste a job description and receive a compatibility summary.
-  \item \textbf{Candidate shortlisting}: save candidate reports, tags, and follow-up notes.
-  \item \textbf{Public-data enrichment}: gather public GitHub signals such as repositories, languages, commits, followers, stars, and contribution patterns.
-  \item \textbf{Access control}: limit usage by subscription tier and organization role.
-  \item \textbf{Notification scheduling}: send reminders, report updates, and saved-search alerts.
-  \item \textbf{Payment readiness}: Stripe can be added later for premium access plans.
+\begin{frame}{What Hire Lens Does}
+\begin{enumerate}
+  \item Accepts a GitHub username or profile link through Telegram.
+  \item Collects public signals such as repositories, languages, activity, and followers.
+  \item Produces a concise candidate summary and later a job-description comparison.
+  \item Stores reports so recruiters can revisit and shortlist candidates.
+  \item Enforces basic usage limits and prepares the path for paid tiers.
 \end{enumerate}
 
-\section{Typical User Roles}
-\begin{itemize}[leftmargin=*]
-  \item \textbf{HR Recruiter}: searches and reviews candidates, compares profiles with job descriptions, and saves reports.
-  \item \textbf{Team Lead/Manager}: reviews shortlisted candidates and monitors report quality.
-  \item \textbf{Platform Admin}: manages user access, usage limits, and billing tiers.
+\vspace{0.5em}
+\begin{block}{Design Choice}
+Telegram stays the main interface; a small dashboard is optional, not central.
+\end{block}
+\end{frame}
+
+\section{Solution Design}
+
+\begin{frame}{Architecture at a Glance}
+\begin{columns}[T,onlytextwidth]
+  \column{0.44\textwidth}
+  \begin{itemize}
+    \item Telegram bot as the frontend
+    \item Azure Functions for API and webhook handling
+    \item Azure Container Apps for the self-hosted model service
+    \item Cosmos DB and Blob Storage for data
+    \item Service Bus for asynchronous jobs
+  \end{itemize}
+  \column{0.54\textwidth}
+  \centering
+  \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{architecture.png}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Request Flow}
+\begin{columns}[T,onlytextwidth]
+  \column{0.36\textwidth}
+  \begin{enumerate}
+    \item Recruiter sends a GitHub profile.
+    \item Bot triggers analysis through Azure Functions.
+    \item Public data is enriched and summarized.
+    \item Results are stored and returned in Telegram.
+  \end{enumerate}
+  \column{0.60\textwidth}
+  \centering
+  \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{request-flow.png}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Storage and Infrastructure}
+\begin{columns}[T,onlytextwidth]
+  \column{0.52\textwidth}
+  \begin{block}{Storage}
+    \begin{itemize}
+      \item Cosmos DB for users, sessions, reports, and limits
+      \item Blob Storage for exports and cached snapshots
+      \item Optional SQL/Table storage for audit and billing records
+    \end{itemize}
+  \end{block}
+  \begin{block}{Terraform}
+    \begin{itemize}
+      \item Separate modules for functions, data, messaging, and monitoring
+      \item Dev first, then prod
+    \end{itemize}
+  \end{block}
+  \column{0.42\textwidth}
+  \centering
+  \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{storage.png}
+\end{columns}
+\end{frame}
+
+\section{Delivery}
+
+\begin{frame}{Risks and Mitigations}
+\begin{itemize}
+  \item GitHub API limits: reduce calls with caching and queueing.
+  \item AI quality: keep a deterministic fallback summary path.
+  \item Hosting cost: start with a smaller quantized model and strict rate limits.
+  \item OAuth complexity: begin with one provider, then expand.
+  \item External costs: prefer the cheapest practical Azure region and usage caps.
 \end{itemize}
+\end{frame}
 
-\section{System Architecture}
-\subsection{Service Overview}
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Frontend}: Telegram bot as the primary UI.
-  \item \textbf{Optional Admin UI}: lightweight React dashboard for analytics and moderation.
-  \item \textbf{API Layer}: Azure Functions exposing REST endpoints for bot actions and admin operations.
-  \item \textbf{Auth}: Google/Facebook sign-in through OAuth, with no password storage.
-  \item \textbf{Session Layer}: server-side session or short-lived token session store.
-  \item \textbf{Primary Data}: Azure Cosmos DB for users, candidate reports, access rules, and usage records.
-  \item \textbf{Unstructured Assets}: Azure Blob Storage for report exports, cached snapshots, and attachments.
-  \item \textbf{Async Work}: Azure Service Bus and scheduled Functions for profile refresh, notifications, and ranking jobs.
-  \item \textbf{Observability}: Application Insights and Azure Monitor with alerts.
-\end{itemize}
+\begin{frame}{Team Split and Milestones}
+\begin{columns}[T,onlytextwidth]
+  \column{0.48\textwidth}
+  \begin{block}{Responsibilities}
+    \begin{itemize}
+      \item Mohammed Zaid Shaikh: bot flow and UX
+      \item Piotr Bartosiewicz: analysis logic and APIs
+      \item Krzysztof Krawiec: Terraform, deployment, monitoring
+    \end{itemize}
+  \end{block}
+  \column{0.44\textwidth}
+  \begin{block}{Milestones}
+    \begin{enumerate}
+      \item Telegram login and profile analysis
+      \item Report storage and retrieval
+      \item Job matching and usage limits
+      \item Terraform deployment and demo
+    \end{enumerate}
+  \end{block}
+\end{columns}
+\end{frame}
 
-\subsection{Microservice-style Functions}
-\begin{itemize}[leftmargin=*]
-  \item \texttt{bot-gateway-service}: receives Telegram updates and routes commands.
-  \item \texttt{auth-service}: handles OAuth sign-in, session creation, and access checks.
-  \item \texttt{profile-analysis-service}: fetches public GitHub data and creates profile summaries.
-  \item \texttt{model-inference-service}: runs a self-hosted open-source model such as Qwen inside Azure Container Apps.
-  \item \texttt{job-match-service}: compares candidate profiles with job descriptions using rule-based logic plus model output.
-  \item \texttt{report-service}: stores and retrieves analysis reports.
-  \item \texttt{notification-service}: scheduled reminders and saved-search alerts.
-  \item \texttt{billing-service}: premium plan logic and Stripe integration for later versions.
-\end{itemize}
-
-\section{API Design}
-Representative REST endpoints:
-\begin{itemize}[leftmargin=*]
-  \item \texttt{POST /api/v1/auth/oauth/start}
-  \item \texttt{POST /api/v1/auth/oauth/callback}
-  \item \texttt{POST /api/v1/bot/webhook}
-  \item \texttt{POST /api/v1/profiles/analyze}
-  \item \texttt{POST /api/v1/models/infer}
-  \item \texttt{POST /api/v1/match/compare}
-  \item \texttt{GET /api/v1/reports/{reportId}}
-  \item \texttt{GET /api/v1/users/me/usage}
-  \item \texttt{POST /api/v1/admin/limits}
-\end{itemize}
-
-\section{Storage Characteristics}
-\begin{table}[ht!]
-\centering
-\small
-\begin{tabularx}{\textwidth}{p{2.8cm}X p{2.2cm}X X}
-\toprule
-\textbf{Store} & \textbf{Type} & \textbf{Consistency} & \textbf{RW Pattern} & \textbf{Data Scope} \\
-\midrule
-Azure Cosmos DB & NoSQL, semi-structured documents & Tunable consistency, strong for critical records & Heavy read/write & Users, sessions, reports, usage limits, billing flags \\
-Azure Blob Storage & Unstructured objects & Strong read-after-write for object access & Read-heavy with periodic writes & Report exports, cached payloads, attachments \\
-Azure Table Storage or SQL (optional) & Structured metadata & Strong for transactional data, depending on choice & Moderate read/write & Audit logs, subscriptions, premium access records \\
-\bottomrule
-\end{tabularx}
-\caption{Planned storage profile and access patterns.}
-\end{table}
-
-\section{Terraform Plan}
-Infrastructure will be provisioned with Terraform and kept reproducible from the beginning:
-\begin{itemize}[leftmargin=*]
-  \item \texttt{modules/frontend} for Azure Static Web Apps and the optional dashboard deployment.
-  \item \texttt{modules/functions} for Azure Functions, Telegram webhooks, OAuth callbacks, and scheduled jobs.
-  \item \texttt{modules/auth} for OAuth and session-related resources.
-  \item \texttt{modules/data} for Cosmos DB, Blob Storage, and optional SQL/Table resources.
-  \item \texttt{modules/messaging} for Service Bus queues and topics.
-  \item \texttt{modules/model} for Azure Container Apps hosting the self-hosted inference service.
-  \item \texttt{modules/monitoring} for dashboards and alerting.
-  \item \texttt{environments/dev} and \texttt{environments/prod} for environment-specific variables.
-\end{itemize}
-
-\noindent Minimum deliverable: one \texttt{terraform apply} that creates a working dev environment with bot backend, internal model service, database, storage, async messaging, and monitoring.
-
-\section{Diagrams}
-The following diagrams are included in the submission package.
-
-\subsection{Architecture Diagram}
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{architecture.png}
-\caption{System architecture diagram.}
-\end{figure}
-
-\subsection{Request Flow Diagram}
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{request-flow.png}
-\caption{Request flow diagram.}
-\end{figure}
-
-\subsection{Storage Diagram}
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.9\textwidth]{storage.png}
-\caption{Storage layout diagram.}
-\end{figure}
-
-\FloatBarrier
-
-\section{Large-Scale Assumption}
-The architecture assumes thousands of HR users and repeated candidate reviews per day, with spikes during hiring campaigns. Scaling strategy:
-\begin{itemize}[leftmargin=*]
-  \item Stateless Azure Functions that scale on demand.
-  \item Queue-based processing for profile analysis and enrichment jobs.
-  \item Azure Container Apps for the model endpoint so inference cost is predictable and data stays inside our system.
-  \item Caching of frequent GitHub responses and report snapshots.
-  \item Rate limiting and access tiers to protect public API usage and cloud costs.
-\end{itemize}
-
-\section{SLA, SLO, and SLI}
-\subsection{SLA}
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Availability SLA}: 99.5\% monthly availability for bot command handling and report retrieval.
-\end{itemize}
-
-\subsection{SLOs}
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Latency SLO}: 95\% of bot commands respond within 2 seconds when using cached or lightweight data.
-  \item \textbf{Analysis SLO}: 90\% of profile analyses complete within 60 seconds for standard GitHub profiles.
-  \item \textbf{Reliability SLO}: 99\% of scheduled notifications execute within 5 minutes of the planned time.
-\end{itemize}
-
-\subsection{SLIs}
-\begin{itemize}[leftmargin=*]
-  \item Telegram command success rate.
-  \item API latency percentiles (p50, p95, p99).
-  \item Profile analysis completion time.
-  \item Notification job execution delay.
-  \item OAuth login success rate and active session count.
-\end{itemize}
-
-\section{Delivery Plan and Team Split}
-\subsection{Submission Scope}
-\begin{itemize}[leftmargin=*]
-  \item Final project idea, features, user roles, and high-level architecture.
-  \item Diagram sources in Mermaid format for the final submission package.
-  \item API design, storage profile, Terraform setup, and SLA/SLO/SLI definitions.
-  \item Live-demo plan with AI-assisted comparison and usage limits.
-\end{itemize}
-
-\subsection{Proposed Responsibilities}
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Mohammed Zaid Shaikh}: Telegram bot flow, UX, and command handling.
-  \item \textbf{Piotr Bartosiewicz}: Azure Functions, GitHub analysis logic, and API contracts.
-  \item \textbf{Krzysztof Krawiec}: Terraform, monitoring, deployment automation, and load testing.
-\end{itemize}
-
-\section{Risk and Mitigation}
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Risk}: GitHub public API rate limits.
-  \item \textbf{Mitigation}: caching, queueing, and conservative refresh intervals.
-  \item \textbf{Risk}: AI output quality or hallucination.
-  \item \textbf{Mitigation}: structured prompts, explainable scoring, and fallback rule-based summaries.
-  \item \textbf{Risk}: GPU hosting cost for the open-source model.
-  \item \textbf{Mitigation}: start with a smaller quantized Qwen model on Azure Container Apps, keep inference behind caching and rate limits, and move to a GPU-only option only if performance is not enough.
-  \item \textbf{Risk}: OAuth setup complexity for beginners.
-  \item \textbf{Mitigation}: start with one provider, then add the second provider once the flow is stable.
-  \item \textbf{Risk}: Costs increase with external API calls and network traffic.
-  \item \textbf{Mitigation}: use the cheapest practical Azure region, limit retries, and add usage caps per tier.
-\end{itemize}
-
-\section{Conclusion}
-This project keeps the implementation practical while still looking like a serious cloud system: a Telegram-first product, Azure managed services, Terraform-based infrastructure, and a clear path from rule-based analysis to AI-assisted hiring support.
+\begin{frame}{Closing}
+Hire Lens is intentionally small in the first release: one bot, one backend, managed Azure services, and a clear path to AI-assisted hiring support.
+\end{frame}
 
 \end{document}
