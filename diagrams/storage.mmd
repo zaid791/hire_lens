@@ -1,0 +1,7 @@
+flowchart TB
+  U[Users and Sessions] --> DB[(Azure Cosmos DB)]
+  R[Candidate Reports] --> DB
+  J[Job Descriptions] --> DB
+  L[Usage Limits and Billing Flags] --> DB
+  E[Exported Reports and Cached Payloads] --> B[(Azure Blob Storage)]
+  A[Audit Logs] --> T[(Azure Table Storage or SQL)]
