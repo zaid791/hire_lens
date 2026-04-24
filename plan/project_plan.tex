@@ -7,6 +7,8 @@
 \usepackage{enumitem}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{float}
+\usepackage{placeins}
 \usepackage{tabularx}
 \usepackage{xcolor}
 
@@ -107,7 +109,7 @@ Representative REST endpoints:
 \end{itemize}
 
 \section{Storage Characteristics}
-\begin{table}[h!]
+\begin{table}[ht!]
 \centering
 \small
 \begin{tabularx}{\textwidth}{p{2.8cm}X p{2.2cm}X X}
@@ -141,25 +143,27 @@ Infrastructure will be provisioned with Terraform and kept reproducible from the
 The following diagrams are included in the submission package.
 
 \subsection{Architecture Diagram}
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{architecture.png}
 \caption{System architecture diagram.}
 \end{figure}
 
 \subsection{Request Flow Diagram}
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{request-flow.png}
 \caption{Request flow diagram.}
 \end{figure}
 
 \subsection{Storage Diagram}
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{storage.png}
 \caption{Storage layout diagram.}
 \end{figure}
+
+\FloatBarrier
 
 \section{Large-Scale Assumption}
 The architecture assumes thousands of HR users and repeated candidate reviews per day, with spikes during hiring campaigns. Scaling strategy:
