@@ -175,27 +175,89 @@ The architecture assumes thousands of HR users and repeated candidate reviews pe
   \item Rate limiting and access tiers to protect public API usage and cloud costs.
 \end{itemize}
 
-\section{SLA, SLO, and SLI}
-\subsection{SLA}
+
+\section{Service Level Agreement (SLA)}
+
+This Service Level Agreement defines the expected reliability, performance, and operational guarantees of the Hire Lens platform deployed in a cloud environment.
+
+\subsection{Service Scope}
+The SLA applies to the following system components:
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Availability SLA}: 99.5\% monthly availability for bot command handling and report retrieval.
+  \item Telegram bot interaction layer (bot-gateway-service)
+  \item Backend API (Azure Functions)
+  \item Profile analysis and job matching services
+  \item Internal model inference service
+  \item Data storage (Cosmos DB, Blob Storage)
 \end{itemize}
 
-\subsection{SLOs}
+External dependencies such as GitHub API and OAuth providers are excluded from strict guarantees but are considered in best-effort availability.
+
+\subsection{Service Level Indicator (SLI)}
+A Service Level Indicator we defined as the percentage of successful HTTP requests relative to the total number of HTTP requests over a specified time period. A request is considered successful if it returns a response with status code 200-399 within the acceptable response time.
+
+\subsection{Service Level Objectives (SLO)}
+
+The system defines the following Service Level Objectives based on the SLI metrics:
+
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Latency SLO}: 95\% of bot commands respond within 2 seconds when using cached or lightweight data.
-  \item \textbf{Analysis SLO}: 90\% of profile analyses complete within 60 seconds for standard GitHub profiles.
-  \item \textbf{Reliability SLO}: 99\% of scheduled notifications execute within 5 minutes of the planned time.
+  \item \textbf{Availability SLO:} 99.0\% of requests are successful over a monthly period
+  \item \textbf{Latency SLO:} 95\% of requests are served within 2 seconds
+  \item \textbf{Error Rate SLO:} less than 1\% of requests result in errors (HTTP 5xx or timeout)
 \end{itemize}
 
-\subsection{SLIs}
+\subsection{Performance (Latency Objectives)}
+The system defines the following response time objectives:
+
 \begin{itemize}[leftmargin=*]
-  \item Telegram command success rate.
-  \item API latency percentiles (p50, p95, p99).
-  \item Profile analysis completion time.
-  \item Notification job execution delay.
-  \item OAuth login success rate and active session count.
+  \item \textbf{API response time:} below 2 seconds
+  \item \textbf{Maximum response time:} 5 seconds
+  \item \textbf{Model inference response time:} below 2 minutes (asynchronous processing allowed)
 \end{itemize}
+
+Long-running operations such as profile analysis may be processed asynchronously using queues.
+
+
+\subsection{Error Rate}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Target error rate:} less than 1\% of total requests
+  \item Errors include HTTP 5xx responses and timeouts
+\end{itemize}
+
+\subsection{Security}
+\begin{itemize}[leftmargin=*]
+  \item All communication is secured via HTTPS
+  \item OAuth-based authentication (no password storage)
+  \item Access control enforced per user role and subscription tier
+\end{itemize}
+
+\subsection{Monitoring and Observability}
+The system uses cloud-native monitoring tools:
+\begin{itemize}[leftmargin=*]
+  \item Azure Monitor and Application Insights for logs and metrics
+  \item Alerting on:
+  \begin{itemize}
+    \item high error rate
+    \item increased latency
+    \item service downtime
+  \end{itemize}
+\end{itemize}
+
+\subsection{Maintenance and Downtime}
+\begin{itemize}[leftmargin=*]
+  \item Planned maintenance will be scheduled during low-traffic periods
+  \item Users will be notified in advance when possible
+  \item Planned downtime is excluded from SLA calculations
+\end{itemize}
+
+
+\subsection{Violation Handling}
+In case the SLA objectives are not met:
+\begin{itemize}[leftmargin=*]
+  \item The incident is recorded and analyzed
+  \item Root cause analysis is performed
+  \item Improvements are proposed for future iterations
+\end{itemize}
+
 
 \section{Delivery Plan and Team Split}
 \subsection{Submission Scope}

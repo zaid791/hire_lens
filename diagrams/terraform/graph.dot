@@ -1,0 +1,64 @@
+digraph G {
+  rankdir = "RL";
+  node [shape = rect, fontname = "sans-serif"];
+  "random_string.suffix" [label="random_string.suffix"];
+  subgraph "cluster_module.data" {
+    label = "module.data"
+    fontname = "sans-serif"
+    "module.data.azurerm_cosmosdb_account.this" [label="azurerm_cosmosdb_account.this"];
+    "module.data.azurerm_cosmosdb_sql_container.this" [label="azurerm_cosmosdb_sql_container.this"];
+    "module.data.azurerm_cosmosdb_sql_database.this" [label="azurerm_cosmosdb_sql_database.this"];
+    "module.data.azurerm_storage_account.this" [label="azurerm_storage_account.this"];
+    "module.data.azurerm_storage_container.reports" [label="azurerm_storage_container.reports"];
+  }
+  subgraph "cluster_module.functions" {
+    label = "module.functions"
+    fontname = "sans-serif"
+    "module.functions.azurerm_linux_function_app.this" [label="azurerm_linux_function_app.this"];
+    "module.functions.azurerm_service_plan.this" [label="azurerm_service_plan.this"];
+    "module.functions.azurerm_storage_account.functions" [label="azurerm_storage_account.functions"];
+  }
+  subgraph "cluster_module.messaging" {
+    label = "module.messaging"
+    fontname = "sans-serif"
+    "module.messaging.azurerm_servicebus_namespace.this" [label="azurerm_servicebus_namespace.this"];
+    "module.messaging.azurerm_servicebus_queue.analysis_jobs" [label="azurerm_servicebus_queue.analysis_jobs"];
+  }
+  subgraph "cluster_module.model" {
+    label = "module.model"
+    fontname = "sans-serif"
+    "module.model.azurerm_container_app.this" [label="azurerm_container_app.this"];
+    "module.model.azurerm_container_app_environment.this" [label="azurerm_container_app_environment.this"];
+  }
+  subgraph "cluster_module.monitoring" {
+    label = "module.monitoring"
+    fontname = "sans-serif"
+    "module.monitoring.azurerm_application_insights.this" [label="azurerm_application_insights.this"];
+  }
+  subgraph "cluster_module.resource_group" {
+    label = "module.resource_group"
+    fontname = "sans-serif"
+    "module.resource_group.azurerm_resource_group.this" [label="azurerm_resource_group.this"];
+  }
+  "module.data.azurerm_cosmosdb_account.this" -> "random_string.suffix";
+  "module.data.azurerm_cosmosdb_account.this" -> "module.resource_group.azurerm_resource_group.this";
+  "module.data.azurerm_cosmosdb_sql_container.this" -> "module.data.azurerm_cosmosdb_sql_database.this";
+  "module.data.azurerm_cosmosdb_sql_database.this" -> "module.data.azurerm_cosmosdb_account.this";
+  "module.data.azurerm_storage_account.this" -> "random_string.suffix";
+  "module.data.azurerm_storage_account.this" -> "module.resource_group.azurerm_resource_group.this";
+  "module.data.azurerm_storage_container.reports" -> "module.data.azurerm_storage_account.this";
+  "module.functions.azurerm_linux_function_app.this" -> "module.functions.azurerm_service_plan.this";
+  "module.functions.azurerm_linux_function_app.this" -> "module.functions.azurerm_storage_account.functions";
+  "module.functions.azurerm_linux_function_app.this" -> "module.monitoring.azurerm_application_insights.this";
+  "module.functions.azurerm_service_plan.this" -> "random_string.suffix";
+  "module.functions.azurerm_service_plan.this" -> "module.resource_group.azurerm_resource_group.this";
+  "module.functions.azurerm_storage_account.functions" -> "random_string.suffix";
+  "module.functions.azurerm_storage_account.functions" -> "module.resource_group.azurerm_resource_group.this";
+  "module.messaging.azurerm_servicebus_namespace.this" -> "random_string.suffix";
+  "module.messaging.azurerm_servicebus_namespace.this" -> "module.resource_group.azurerm_resource_group.this";
+  "module.messaging.azurerm_servicebus_queue.analysis_jobs" -> "module.messaging.azurerm_servicebus_namespace.this";
+  "module.model.azurerm_container_app.this" -> "module.model.azurerm_container_app_environment.this";
+  "module.model.azurerm_container_app_environment.this" -> "random_string.suffix";
+  "module.model.azurerm_container_app_environment.this" -> "module.resource_group.azurerm_resource_group.this";
+  "module.monitoring.azurerm_application_insights.this" -> "module.resource_group.azurerm_resource_group.this";
+}
