@@ -15,18 +15,23 @@ This repository is organized as a monorepo with clear boundaries between product
 ## Codebase responsibilities
 
 ### `apps/telegram-bot`
+
 The main product interface. This should contain the Telegram webhook handler, chat commands, onboarding flow, and user-facing bot logic.
 
 ### `apps/web-dashboard`
+
 Optional admin or analytics frontend. Keep this separate from the Telegram bot so it can be built or skipped independently.
 
 ### `services/backend`
+
 The core API and workflow layer. Use this for auth callbacks, access control, report orchestration, and queue-driven business logic.
 
 ### `services/model-inference`
+
 The internal AI model endpoint. This should stay isolated from user-facing code and only be called by trusted backend services.
 
 ### `packages/shared`
+
 Common contracts and helpers used by the other codebases. Keep this stable and small so the services do not diverge.
 
 ## Rules for the team
