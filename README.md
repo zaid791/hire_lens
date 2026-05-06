@@ -2,6 +2,10 @@
 
 This document gives a concise execution guide for Hire Lens, the cloud computing project.
 
+## Repository Structure
+
+The code is organized as a monorepo with separate folders for apps, services, shared code, infrastructure, and documentation. Start with [docs/repo-structure.md](docs/repo-structure.md) for the team-facing layout and ownership rules.
+
 ## Project Idea
 
 Hire Lens is a Telegram-first HR assistant that analyzes public GitHub profiles and compares them with job descriptions. The system should help recruiters quickly understand whether a candidate matches a role.
