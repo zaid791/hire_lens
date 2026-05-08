@@ -61,6 +61,12 @@ variable "cosmos_container_name" {
   default     = "records"
 }
 
+variable "cosmos_location" {
+  description = "Optional override for the Cosmos DB region."
+  type        = string
+  default     = "polandcentral"
+}
+
 variable "service_bus_queue_name" {
   description = "Service Bus queue name for background jobs."
   type        = string

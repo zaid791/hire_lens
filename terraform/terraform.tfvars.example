@@ -1,6 +1,7 @@
 project_name = "hirelens"
 environment  = "dev"
 location     = "westeurope"
+cosmos_location = "polandcentral"
 
 tags = {
   project = "hire-lens"

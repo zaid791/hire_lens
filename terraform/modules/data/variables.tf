@@ -6,6 +6,11 @@ variable "location" {
   type = string
 }
 
+variable "cosmos_location" {
+  type    = string
+  default = null
+}
+
 variable "storage_account_name" {
   type = string
 }

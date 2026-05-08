@@ -18,10 +18,11 @@ resource "azurerm_storage_container" "reports" {
 
 resource "azurerm_cosmosdb_account" "this" {
   name                          = var.cosmos_account_name
-  location                      = var.location
+  location                      = coalesce(var.cosmos_location, var.location)
   resource_group_name           = var.resource_group_name
   offer_type                    = "Standard"
   kind                          = "GlobalDocumentDB"
+  free_tier_enabled             = true
   public_network_access_enabled = true
 
   consistency_policy {
@@ -29,7 +30,7 @@ resource "azurerm_cosmosdb_account" "this" {
   }
 
   geo_location {
-    location          = var.location
+    location          = coalesce(var.cosmos_location, var.location)
     failover_priority = 0
     zone_redundant    = false
   }

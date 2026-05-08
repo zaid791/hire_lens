@@ -15,6 +15,7 @@ module "data" {
   source                = "./modules/data"
   resource_group_name   = module.resource_group.name
   location              = module.resource_group.location
+  cosmos_location       = var.cosmos_location
   storage_account_name  = local.storage_account_name
   cosmos_account_name   = local.cosmos_account_name
   cosmos_db_name        = var.cosmos_db_name
