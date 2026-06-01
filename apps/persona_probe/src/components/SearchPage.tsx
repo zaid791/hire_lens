@@ -5,9 +5,10 @@ import { Footer } from './Footer';
 interface SearchPageProps {
   onSearch: (username: string) => void;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
-export function SearchPage({ onSearch, isLoading }: SearchPageProps) {
+export function SearchPage({ onSearch, isLoading, disabled }: SearchPageProps) {
   const [username, setUsername] = useState("");
 
   const handleSubmit = () => {
@@ -51,12 +52,12 @@ export function SearchPage({ onSearch, isLoading }: SearchPageProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !isLoading && handleSubmit()}
-                disabled={isLoading}
+                disabled={isLoading || disabled}
               />
               <button
                 className="gradient-primary text-[#3f008e] font-headline font-bold px-8 py-4 rounded-xl flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg disabled:opacity-50"
                 onClick={handleSubmit}
-                disabled={isLoading}
+                disabled={isLoading || disabled}
               >
                 {isLoading ? "Analyzing..." : "Analyze"}
                 {!isLoading && <span className="material-symbols-outlined text-sm">arrow_forward</span>}
@@ -73,7 +74,7 @@ export function SearchPage({ onSearch, isLoading }: SearchPageProps) {
                   key={name}
                   className="font-mono text-xs tracking-[0.05em] uppercase text-[#ccc3d8] hover:text-[#d2bbff] border-b border-transparent hover:border-[#d2bbff] transition-all duration-200 pb-0.5"
                   onClick={() => { setUsername(name); onSearch(name); }}
-                  disabled={isLoading}
+                  disabled={isLoading || disabled}
                 >
                   {name}
                 </button>
