@@ -2,14 +2,13 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Note: To configure your live Firebase credentials, add these keys inside 'apps/persona_probe/.env.local'
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "hire-lens-e6936.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "hire-lens-e6936",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "hire-lens-e6936.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "mock-sender-id",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "mock-app-id"
+  apiKey: "AIzaSyAQA5XAaud1D6TWEoJilqRSOXF5j9ofLJA",
+  authDomain: "hire-lens-498217.firebaseapp.com",
+  projectId: "hire-lens-498217",
+  storageBucket: "hire-lens-498217.firebasestorage.app",
+  messagingSenderId: "406092103365",
+  appId: "1:406092103365:web:5d8c7f13067de2e0b8faac"
 };
 
 // Initialize Firebase
