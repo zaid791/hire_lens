@@ -1,5 +1,10 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { GitHubProfile, GitHubRepo, LanguageStat, CommitPattern, GeminiAnalysis } from '../types/index';
+import {
+  GitHubProfile,
+  GitHubRepo,
+  LanguageStat,
+  CommitPattern,
+  GeminiAnalysis
+} from '../types/index';
 
 export async function analyzeWithGemini(
   profile: GitHubProfile,
@@ -7,74 +12,107 @@ export async function analyzeWithGemini(
   languageStats: LanguageStat[],
   commitPattern: CommitPattern
 ): Promise<GeminiAnalysis> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing GEMINI_API_KEY environment variable.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
-    Analyze the following GitHub developer profile and return a JSON object.
-    
-    Profile: ${JSON.stringify(profile)}
-    Repositories: ${JSON.stringify(repos)}
-    Language Statistics: ${JSON.stringify(languageStats)}
-    Commit Pattern: ${JSON.stringify(commitPattern)}
-    
-    Return ONLY a valid JSON object with the following fields:
-    - personality_summary (string)
-    - archetype (string)
-    - top_strengths (array of 3 strings)
-    - blind_spot (string)
-    - recruiter_pitch (string)
-  `;
+Analyze the following GitHub developer profile and return ONLY valid JSON.
+
+Return format:
+{
+  "personality_summary": string,
+  "archetype": string,
+  "top_strengths": [string, string, string],
+  "blind_spot": string,
+  "recruiter_pitch": string
+}
+
+Rules:
+- Return ONLY JSON (no markdown, no text)
+- top_strengths MUST be array of 3 strings
+- no extra keys
+
+Profile: ${JSON.stringify(profile)}
+Repositories: ${JSON.stringify(repos)}
+Language Statistics: ${JSON.stringify(languageStats)}
+Commit Pattern: ${JSON.stringify(commitPattern)}
+`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            personality_summary: { type: Type.STRING },
-            archetype: { type: Type.STRING },
-            top_strengths: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            blind_spot: { type: Type.STRING },
-            recruiter_pitch: { type: Type.STRING }
+    const response = await fetch("http://localhost:11434/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "tinyllama", // możesz zmienić np. llama3, mistral
+        messages: [
+          {
+            role: "system",
+            content: "You are a strict JSON API. Output ONLY valid JSON. No explanations."
           },
-          required: ["personality_summary", "archetype", "top_strengths", "blind_spot", "recruiter_pitch"]
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        stream: false,
+        format: "json",
+        options: {
+          temperature: 0
         }
-      }
+      })
     });
 
-    const text = response.text;
-    if (!text) {
-      throw new Error("Gemini API returned an empty response.");
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.statusText}`);
     }
 
-    const analysis: GeminiAnalysis = JSON.parse(text);
-    
-    // Additional validation
-    if (
-      !analysis.personality_summary ||
-      !analysis.archetype ||
-      !Array.isArray(analysis.top_strengths) ||
-      analysis.top_strengths.length !== 3 ||
-      !analysis.blind_spot ||
-      !analysis.recruiter_pitch
-    ) {
-      throw new Error("Gemini API returned invalid JSON structure.");
+    const data = await response.json();
+    const rawText = data.message?.content;
+
+    if (!rawText) {
+      throw new Error("Ollama returned empty response.");
+    }
+
+    // 🔧 SAFE JSON PARSING (z fallbackiem)
+    let parsed: any;
+
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      console.warn("Raw malformed JSON:", rawText);
+
+      const match = rawText.match(/\{[\s\S]*\}/);
+      if (!match) {
+        throw new Error("No JSON found in model response.");
+      }
+
+      parsed = JSON.parse(match[0]);
+    }
+
+    // 🧠 NORMALIZACJA (KLUCZ DO STABILNOŚCI)
+    const analysis: GeminiAnalysis = {
+      personality_summary: parsed.personality_summary ?? "Unknown",
+      archetype: parsed.archetype ?? "Unknown",
+      top_strengths: Array.isArray(parsed.top_strengths)
+        ? parsed.top_strengths.slice(0, 3)
+        : [],
+      blind_spot: parsed.blind_spot ?? "Unknown",
+      recruiter_pitch: parsed.recruiter_pitch ?? "Unknown"
+    };
+
+    // 🔧 padding do dokładnie 3 elementów
+    while (analysis.top_strengths.length < 3) {
+      analysis.top_strengths.push("N/A");
     }
 
     return analysis;
+
   } catch (error) {
-    console.error("Gemini API error:", error);
-    throw new Error(`Failed to analyze profile: ${error instanceof Error ? error.message : "Unknown error"}`);
+    console.error("Ollama error:", error);
+    throw new Error(
+      `Failed to analyze profile: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
   }
 }
