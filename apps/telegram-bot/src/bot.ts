@@ -300,6 +300,20 @@ bot.on('text', async (ctx) => {
   }
 });
 
+
+import http from 'http';
+
+// Trik dla Google Cloud Run - udajemy, że nasłuchujemy na porcie 8080
+const PORT = process.env.PORT || 8080;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Bot is running...');
+}).listen(PORT, () => {
+  console.log(`Google Cloud Health Check listening on port ${PORT}`);
+});
+
+
+
 // Start the bot
 bot.launch().catch((err) => {
   console.error('❌ Failed to start the Telegram Bot:', err);
