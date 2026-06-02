@@ -1,4 +1,4 @@
-import { GitHubProfile, GitHubRepo, GitHubEvent } from '../types/index';
+import { GitHubProfile, GitHubRepo, GitHubEvent } from '../types/index.js';
 
 export class GitHubNotFoundError extends Error {
   constructor(message: string) {

@@ -1,4 +1,4 @@
-import { CommitPattern, PatternLabel } from '../types/index';
+import { CommitPattern, PatternLabel } from '../types/index.js';
 
 export function analyzeCommitPattern(events: any[], repos: any[]): CommitPattern {
   if (!events || events.length === 0) {

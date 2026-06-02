@@ -1,10 +1,11 @@
 import { Telegraf } from 'telegraf';
 import * as dotenv from 'dotenv';
-import { fetchGitHubProfile, fetchGitHubRepos, fetchGitHubEvents, GitHubNotFoundError, GitHubRateLimitError } from './services/githubService';
-import { analyzeLanguages } from './utils/analyzeLanguages';
-import { analyzeCommitPattern } from './utils/analyzeCommitPattern';
-import { analyzeWithGemini } from './services/geminiService';
-import { FullProfile } from './types';
+import { fetchGitHubProfile, fetchGitHubRepos, fetchGitHubEvents, GitHubNotFoundError, GitHubRateLimitError } from './services/githubService.js';
+import { analyzeLanguages } from './utils/analyzeLanguages.js';
+import { analyzeCommitPattern } from './utils/analyzeCommitPattern.js';
+import { analyzeWithGemini } from './services/geminiService.js';
+import { checkAndIncrementRequestLimit, getUserProfile, generateLinkingCode, LIMITS } from './services/firebaseService.js';
+import { FullProfile } from './types/index.js';
 
 // Load environment variables
 dotenv.config();
@@ -46,6 +47,8 @@ I am your Telegram-first HR assistant that analyzes public GitHub profiles to he
 • Send <code>/analyze [github-username]</code>
 • Send a GitHub profile link directly (e.g., <code>https://github.com/octocat</code>)
 • Send just a GitHub username (e.g., <code>octocat</code>)
+• Send <code>/profile</code> to check your subscription quota
+• Send <code>/link</code> to connect your bot with the Web Dashboard
 • Try <code>/demo</code> to see an example report instantly!
 
 Let's find the best match for your team! 🚀`;
@@ -111,7 +114,7 @@ ${languagesText || '• <i>No languages detected</i>'}
 • <b>Summary:</b> <i>${analysis.personality_summary}</i>
 
 • <b>Top Strengths:</b>
-${strengthsText}
+* ${strengthsText}
 
 • <b>Blind Spot:</b> <i>${analysis.blind_spot}</i>
 
@@ -122,13 +125,47 @@ ${strengthsText}
 
 // Handler: Run analysis on a username
 async function handleAnalysis(ctx: any, username: string) {
+  const chatId = String(ctx.from?.id);
+  const userHandle = ctx.from?.username || '';
+
+  // 1. Check & increment rate limit in Firestore
+  let quota;
+  try {
+    quota = await checkAndIncrementRequestLimit(chatId, userHandle);
+  } catch (err) {
+    console.error('Failed checking request quota:', err);
+    // Allow request as fallback if database completely errors out
+    quota = { allowed: true, remaining: 1, limit: LIMITS.base, subscriptionTier: 'base', isMock: true };
+  }
+
+  if (!quota.allowed) {
+    const limitMessage = `⚠️ <b>Daily Quota Reached!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+You have used all <b>${quota.limit}</b> of your daily analysis requests for today.
+
+✨ <b>Get Unlimited Reports:</b>
+Upgrade to our Premium Subscription to unlock unlimited candidate lookups, direct candidate PDF export, and advanced personality breakdowns!
+
+👉 Type <code>/profile</code> to see your current subscription details.`;
+
+    try {
+      await ctx.replyWithHTML(limitMessage);
+    } catch {
+      console.warn(`Could not send limit warning — user may have blocked the bot.`);
+    }
+    return;
+  }
+
   let loadingMsgId: number | null = null;
 
   try {
-    const loadingMsg = await ctx.replyWithHTML(`⏳ Analyzing <b>@${username}</b>... Please wait.`);
+    const usageFooter = quota.isMock
+      ? `(Quota: ${quota.limit - quota.remaining}/${quota.limit} used today • Mock Mode)`
+      : `(Quota: ${quota.limit - quota.remaining}/${quota.limit} used today)`;
+
+    const loadingMsg = await ctx.replyWithHTML(`⏳ Analyzing <b>@${username}</b>... Please wait.\n<i>${usageFooter}</i>`);
     loadingMsgId = loadingMsg.message_id;
   } catch {
-    // If we can't even send a message (e.g. user blocked bot), abort silently
     console.warn(`Could not send loading message to user — they may have blocked the bot.`);
     return;
   }
@@ -187,6 +224,53 @@ bot.help((ctx) => ctx.replyWithHTML(WELCOME_MESSAGE));
 
 bot.command('demo', async (ctx) => {
   await handleAnalysis(ctx, 'demo');
+});
+
+bot.command('profile', async (ctx) => {
+  const chatId = String(ctx.from?.id);
+  const profile = await getUserProfile(chatId);
+
+  const tier = profile ? profile.subscriptionTier : 'base';
+  const requests = profile ? profile.requestsToday : 0;
+  const limit = profile ? profile.limit : LIMITS.base;
+  const remaining = profile ? profile.remaining : LIMITS.base;
+
+  const profileMessage = `👤 <b>Your Hire Lens Account Profile</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Account ID: <code>${chatId}</code>
+• Subscription Tier: <b>${tier.toUpperCase()}</b>
+
+📊 <b>Daily Usage Status:</b>
+• Requests Used Today: <b>${requests} / ${limit}</b>
+• Requests Remaining: <b>${remaining}</b>
+
+${tier === 'base' ? '✨ Want unlimited searches? Contact support to upgrade your tier to Premium!' : '💎 Thank you for being a Premium member! You have unlimited access.'}`;
+
+  await ctx.replyWithHTML(profileMessage);
+});
+
+bot.command('link', async (ctx) => {
+  const chatId = String(ctx.from?.id);
+
+  try {
+    const code = await generateLinkingCode(chatId);
+    const linkUrl = `http://localhost:3000?linkCode=${code}`;
+
+    const linkMsg = `🔗 <b>Connect with Web Dashboard</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Connect your Telegram account to your Hire Lens Web profile to sync your Premium subscription level!
+
+🗝️ One-Time linking code: <code>${code}</code>
+⏳ Valid for 15 minutes.
+
+👉 <b>Click here to link immediately:</b>
+${linkUrl}`;
+
+    await ctx.replyWithHTML(linkMsg);
+  } catch (error) {
+    console.error('Failed to generate link code:', error);
+    await ctx.replyWithHTML('❌ Failed to generate a linking code. Please try again later.');
+  }
 });
 
 bot.command('analyze', async (ctx) => {

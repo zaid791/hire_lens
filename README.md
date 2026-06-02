@@ -168,3 +168,32 @@ The slide deck in `presentation/` should match the same architecture and milesto
 Start by writing the Telegram bot command handlers and the OAuth login flow, then connect them to a minimal Azure backend.
 
 After that, add the internal model service on Azure Container Apps and test it on a small set of GitHub profiles before turning on the more advanced matching logic.
+
+## Local Setup
+
+### PersonaProbe web app
+
+1. Install Node.js 18 or newer.
+2. Open a terminal in `apps/persona_probe` and run `npm install`.
+3. Copy `apps/persona_probe/.env.example` to `apps/persona_probe/.env.local` and fill in the Firebase and Gemini values.
+4. In Firebase Console, enable Email/Password, Google, and GitHub sign-in for the project.
+5. Run `npm run dev` from `apps/persona_probe` and open the Vite URL in your browser.
+
+Required app variables:
+
+- `GEMINI_API_KEY`
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+
+### Telegram bot
+
+1. Open a terminal in `apps/telegram-bot` and run `npm install`.
+2. Copy `apps/telegram-bot/.env.example` to `apps/telegram-bot/.env` and fill in the bot token and Gemini key.
+3. Add the Firebase service-account JSON locally if you need the bot to talk to Firestore.
+4. Run `npm run dev` from `apps/telegram-bot`.
+
+The service-account file should stay out of Git and only live on each developer’s machine.

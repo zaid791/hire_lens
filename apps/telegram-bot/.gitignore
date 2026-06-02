@@ -9,6 +9,9 @@ dist/
 .env.local
 .env.*.local
 
+# Firebase admin credentials - keep this local to each machine
+firebase-service-account.json
+
 # Test scripts
 src/test_*.ts
 

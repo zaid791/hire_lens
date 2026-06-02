@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { GitHubProfile, GitHubRepo, LanguageStat, CommitPattern, GeminiAnalysis } from '../types/index';
+import { GitHubProfile, GitHubRepo, LanguageStat, CommitPattern, GeminiAnalysis } from '../types/index.js';
 
 export async function analyzeWithGemini(
   profile: GitHubProfile,

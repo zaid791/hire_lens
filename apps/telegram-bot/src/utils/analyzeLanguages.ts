@@ -1,4 +1,4 @@
-import { LanguageStat } from '../types/index';
+import { LanguageStat } from '../types/index.js';
 
 export function analyzeLanguages(repos: any[]): LanguageStat[] {
   const languageCounts = new Map<string, number>();

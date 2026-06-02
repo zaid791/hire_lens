@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { auth, db } from './firebase';
 import { FullProfile } from './types';
 import { fetchGitHubProfile, fetchGitHubRepos, fetchGitHubEvents } from './services/githubService';
 import { analyzeLanguages } from './utils/analyzeLanguages';
@@ -6,7 +9,7 @@ import { analyzeCommitPattern } from './utils/analyzeCommitPattern';
 import { analyzeWithGemini } from './services/geminiService';
 import { SearchPage } from './components/SearchPage';
 import { ResultsPage } from './components/ResultsPage';
-
+import { AuthModal } from './components/AuthModal';
 
 const MOCK_PROFILE: FullProfile = {
   profile: {
@@ -36,66 +39,105 @@ const MOCK_PROFILE: FullProfile = {
 };
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FullProfile | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [linkSuccess, setLinkSuccess] = useState<string | null>(null);
 
-  // 🔐 AUTH
+  // 🔐 LISTEN TO AUTH STATE
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    if (savedToken) setToken(savedToken);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      if (user) {
+        // Fetch custom user profile info (tier, linked accounts) from Firestore
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const docSnap = await getDoc(userDocRef);
+          if (docSnap.exists()) {
+            setUserProfile(docSnap.data());
+          } else {
+            setUserProfile({ subscriptionTier: 'base' });
+          }
+        } catch {
+          setUserProfile({ subscriptionTier: 'base' });
+        }
+      } else {
+        setUserProfile(null);
+      }
+    });
 
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-
-    if (code && !savedToken) {
-      fetch("http://localhost:8000/auth/github", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ code })
-      })
-        .then(res => res.json())
-        .then(data => {
-          localStorage.setItem("token", data.token);
-          setToken(data.token);
-          window.history.replaceState({}, document.title, "/");
-        })
-        .catch(() => setError("GitHub login failed"));
-    }
+    return () => unsubscribe();
   }, []);
 
-  // ✅ POPRAWKA: VITE zamiast process.env
-  const handleLogin = () => {
-    const clientId = import.meta.env.VITE_GH_CLIENT_ID;
-    const redirectUri = "http://localhost:3000/auth/github/callback";
+  // 🔗 TELEGRAM DEEP-LINKING CODE HANDLER
+  useEffect(() => {
+    if (!currentUser) return;
 
-    window.location.href =
-      `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=read:user`;
+    const params = new URLSearchParams(window.location.search);
+    const linkCode = params.get("linkCode");
+
+    if (linkCode) {
+      const handleLinking = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          // 1. Fetch Telegram chat ID mapped to this linking code
+          const codeRef = doc(db, 'linkingCodes', linkCode);
+          const codeSnap = await getDoc(codeRef);
+
+          if (!codeSnap.exists()) {
+            throw new Error("Invalid or expired linking code. Please request a new one via the bot using /link.");
+          }
+
+          const { telegramChatId } = codeSnap.data();
+
+          // 2. Link Telegram ID inside the user's web account
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userDocRef, {
+            telegramChatId: telegramChatId
+          });
+
+          // 3. Delete used code for security
+          await deleteDoc(codeRef);
+
+          setLinkSuccess("🎉 Telegram linked successfully! Your bot will now share this premium web account status.");
+
+          // Re-fetch profile
+          const updatedSnap = await getDoc(userDocRef);
+          if (updatedSnap.exists()) {
+            setUserProfile(updatedSnap.data());
+          }
+
+          // Clear query params from address bar
+          window.history.replaceState({}, document.title, "/");
+        } catch (err: any) {
+          setError(err.message || "Failed to link Telegram account.");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      handleLinking();
+    }
+  }, [currentUser]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setResult(null);
+      setLinkSuccess(null);
+    } catch (err: any) {
+      setError("Failed to sign out");
+    }
   };
-
-const handleLogout = () => {
-  localStorage.removeItem("token");
-  setToken(null);
-  setResult(null);
-
-  const confirmRevoke = confirm(
-    "Are you sure you want to logout?"
-  );
-
-  if (confirmRevoke) {
-    window.open("https://github.com/settings/applications", "_blank");
-  }
-
-  window.location.href = "/";
-};
 
   // 🔍 SEARCH
   const handleSearch = async (username: string) => {
-    if (!token) {
-      setError("Please log in first");
+    if (!currentUser) {
+      setIsAuthOpen(true);
       return;
     }
 
@@ -134,21 +176,30 @@ const handleLogout = () => {
 
   return (
     <>
-      {/* 🔘 LOGIN BUTTON (always visible) */}
-      <div className="fixed top-4 right-4 z-[9999]">
-        {token ? (
-          <button
-            onClick={handleLogout}
-            className="bg-gray-800 text-white px-4 py-2 rounded-lg"
-          >
-            Logout
-          </button>
+      {/* 🔘 NAVIGATION / HEADER LOGINS */}
+      <div className="fixed top-4 right-4 z-[9999] flex items-center gap-3">
+        {currentUser ? (
+          <div className="flex items-center gap-3 bg-[#070e1d]/80 border border-[#2e3545] rounded-xl px-4 py-2 text-xs font-mono text-[#ccc3d8]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
+              {currentUser.email}
+            </span>
+            <span className="bg-[#7c3aed]/20 text-[#d2bbff] border border-[#7c3aed]/50 px-2 py-0.5 rounded uppercase font-bold text-[10px]">
+              {userProfile?.subscriptionTier || 'BASE'}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="text-white hover:text-red-400 font-bold ml-2 pl-2 border-l border-[#2e3545]"
+            >
+              Log Out
+            </button>
+          </div>
         ) : (
           <button
-            onClick={handleLogin}
-            className="bg-black text-white px-4 py-2 rounded-lg"
+            onClick={() => setIsAuthOpen(true)}
+            className="bg-gradient-to-r from-[#7c3aed] to-[#d2bbff] text-[#3f008e] font-headline font-bold px-6 py-2.5 rounded-xl text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg"
           >
-            Log in with GitHub
+            Sign Up / Log In
           </button>
         )}
       </div>
@@ -160,8 +211,27 @@ const handleLogout = () => {
         <SearchPage
           onSearch={handleSearch}
           isLoading={isLoading}
-          disabled={!token}
+          disabled={!currentUser}
         />
+      )}
+
+      {/* 🗝️ AUTH MODAL */}
+      {isAuthOpen && (
+        <AuthModal onClose={() => setIsAuthOpen(false)} />
+      )}
+
+      {/* 🎉 LINK SUCCESS */}
+      {linkSuccess && (
+        <div className="fixed bottom-20 right-4 bg-green-950 border border-green-500 text-green-300 px-6 py-4 rounded-xl font-body text-sm shadow-2xl z-[9999] flex items-center gap-3 max-w-sm">
+          <span className="material-symbols-outlined text-green-400">check_circle</span>
+          <div>
+            <h4 className="font-bold">Telegram Connected</h4>
+            <p className="text-xs text-green-400/80 mt-0.5">{linkSuccess}</p>
+          </div>
+          <button onClick={() => setLinkSuccess(null)} className="text-green-300 hover:text-white ml-auto">
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        </div>
       )}
 
       {/* ❌ ERROR */}

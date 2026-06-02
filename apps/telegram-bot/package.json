@@ -2,6 +2,7 @@
   "name": "telegram-bot",
   "version": "1.0.0",
   "description": "Telegram bot for Hire Lens",
+  "type": "module",
   "main": "dist/bot.js",
   "scripts": {
     "dev": "tsx watch src/bot.ts",
@@ -11,6 +12,7 @@
   "dependencies": {
     "@google/genai": "^2.0.0",
     "dotenv": "^17.2.3",
+    "firebase-admin": "^13.10.0",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
