@@ -1,0 +1,125 @@
+digraph G {
+  rankdir = "RL";
+  node [shape = rect, fontname = "sans-serif"];
+  "random_string.suffix" [label="random_string.suffix"];
+  subgraph "cluster_module.auth" {
+    label = "module.auth"
+    fontname = "sans-serif"
+    "module.auth.data.google_firebase_web_app_config.default" [label="data.google_firebase_web_app_config.default"];
+    "module.auth.google_identity_platform_default_supported_idp_config.github" [label="google_identity_platform_default_supported_idp_config.github"];
+    "module.auth.google_identity_platform_project_default_config.default" [label="google_identity_platform_project_default_config.default"];
+  }
+  subgraph "cluster_module.database" {
+    label = "module.database"
+    fontname = "sans-serif"
+    "module.database.google_firestore_database.default" [label="google_firestore_database.default"];
+  }
+  subgraph "cluster_module.networking" {
+    label = "module.networking"
+    fontname = "sans-serif"
+    "module.networking.google_compute_network.vpc" [label="google_compute_network.vpc"];
+    "module.networking.google_compute_router.router" [label="google_compute_router.router"];
+    "module.networking.google_compute_router_nat.nat" [label="google_compute_router_nat.nat"];
+    "module.networking.google_compute_subnetwork.subnet" [label="google_compute_subnetwork.subnet"];
+    "module.networking.google_vpc_access_connector.connector" [label="google_vpc_access_connector.connector"];
+  }
+  subgraph "cluster_module.project" {
+    label = "module.project"
+    fontname = "sans-serif"
+    "module.project.data.google_project.project" [label="data.google_project.project"];
+    "module.project.google_firebase_project.default" [label="google_firebase_project.default"];
+    "module.project.google_firebase_web_app.default" [label="google_firebase_web_app.default"];
+    "module.project.google_project_service.services" [label="google_project_service.services"];
+  }
+  subgraph "cluster_module.pubsub" {
+    label = "module.pubsub"
+    fontname = "sans-serif"
+    "module.pubsub.google_pubsub_subscription.subscription" [label="google_pubsub_subscription.subscription"];
+    "module.pubsub.google_pubsub_topic.topic" [label="google_pubsub_topic.topic"];
+  }
+  subgraph "cluster_module.services" {
+    label = "module.services"
+    fontname = "sans-serif"
+    "module.services.data.archive_file.dummy_func" [label="data.archive_file.dummy_func"];
+    "module.services.google_cloud_run_v2_service.backend" [label="google_cloud_run_v2_service.backend"];
+    "module.services.google_cloud_run_v2_service.inference" [label="google_cloud_run_v2_service.inference"];
+    "module.services.google_cloud_run_v2_service_iam_member.backend_public" [label="google_cloud_run_v2_service_iam_member.backend_public"];
+    "module.services.google_cloudfunctions2_function.background_handler" [label="google_cloudfunctions2_function.background_handler"];
+    "module.services.google_project_iam_member.bot_firestore" [label="google_project_iam_member.bot_firestore"];
+    "module.services.google_project_iam_member.bot_pubsub_publisher" [label="google_project_iam_member.bot_pubsub_publisher"];
+    "module.services.google_project_iam_member.run_eventarc_receiver" [label="google_project_iam_member.run_eventarc_receiver"];
+    "module.services.google_project_iam_member.run_firestore" [label="google_project_iam_member.run_firestore"];
+    "module.services.google_project_iam_member.run_invoker" [label="google_project_iam_member.run_invoker"];
+    "module.services.google_project_iam_member.run_pubsub_publisher" [label="google_project_iam_member.run_pubsub_publisher"];
+    "module.services.google_project_iam_member.run_pubsub_subscriber" [label="google_project_iam_member.run_pubsub_subscriber"];
+    "module.services.google_project_iam_member.run_storage" [label="google_project_iam_member.run_storage"];
+    "module.services.google_service_account.bot_sa" [label="google_service_account.bot_sa"];
+    "module.services.google_service_account.run_sa" [label="google_service_account.run_sa"];
+    "module.services.google_storage_bucket.func_source_bucket" [label="google_storage_bucket.func_source_bucket"];
+    "module.services.google_storage_bucket_object.func_zip" [label="google_storage_bucket_object.func_zip"];
+  }
+  subgraph "cluster_module.storage" {
+    label = "module.storage"
+    fontname = "sans-serif"
+    "module.storage.google_storage_bucket.bucket" [label="google_storage_bucket.bucket"];
+  }
+  "module.auth.data.google_firebase_web_app_config.default" -> "module.auth.google_identity_platform_project_default_config.default";
+  "module.auth.google_identity_platform_default_supported_idp_config.github" -> "module.auth.google_identity_platform_project_default_config.default";
+  "module.auth.google_identity_platform_project_default_config.default" -> "module.project.data.google_project.project";
+  "module.auth.google_identity_platform_project_default_config.default" -> "module.project.google_firebase_web_app.default";
+  "module.database.google_firestore_database.default" -> "module.project.data.google_project.project";
+  "module.database.google_firestore_database.default" -> "module.project.google_firebase_web_app.default";
+  "module.networking.google_compute_network.vpc" -> "module.project.data.google_project.project";
+  "module.networking.google_compute_network.vpc" -> "module.project.google_firebase_web_app.default";
+  "module.networking.google_compute_router.router" -> "module.networking.google_compute_network.vpc";
+  "module.networking.google_compute_router_nat.nat" -> "module.networking.google_compute_router.router";
+  "module.networking.google_compute_subnetwork.subnet" -> "module.networking.google_compute_network.vpc";
+  "module.networking.google_vpc_access_connector.connector" -> "module.networking.google_compute_network.vpc";
+  "module.project.google_firebase_project.default" -> "module.project.google_project_service.services";
+  "module.project.google_firebase_web_app.default" -> "module.project.google_firebase_project.default";
+  "module.pubsub.google_pubsub_subscription.subscription" -> "module.pubsub.google_pubsub_topic.topic";
+  "module.pubsub.google_pubsub_topic.topic" -> "module.project.data.google_project.project";
+  "module.pubsub.google_pubsub_topic.topic" -> "module.project.google_firebase_web_app.default";
+  "module.services.data.archive_file.dummy_func" -> "module.database.google_firestore_database.default";
+  "module.services.data.archive_file.dummy_func" -> "module.networking.google_compute_router_nat.nat";
+  "module.services.data.archive_file.dummy_func" -> "module.networking.google_compute_subnetwork.subnet";
+  "module.services.data.archive_file.dummy_func" -> "module.networking.google_vpc_access_connector.connector";
+  "module.services.data.archive_file.dummy_func" -> "module.pubsub.google_pubsub_subscription.subscription";
+  "module.services.data.archive_file.dummy_func" -> "module.storage.google_storage_bucket.bucket";
+  "module.services.google_cloud_run_v2_service.backend" -> "module.services.google_service_account.run_sa";
+  "module.services.google_cloud_run_v2_service.inference" -> "module.services.google_service_account.run_sa";
+  "module.services.google_cloud_run_v2_service_iam_member.backend_public" -> "module.services.google_cloud_run_v2_service.backend";
+  "module.services.google_cloudfunctions2_function.background_handler" -> "module.services.google_service_account.run_sa";
+  "module.services.google_cloudfunctions2_function.background_handler" -> "module.services.google_storage_bucket_object.func_zip";
+  "module.services.google_project_iam_member.bot_firestore" -> "module.services.google_service_account.bot_sa";
+  "module.services.google_project_iam_member.bot_pubsub_publisher" -> "module.services.google_service_account.bot_sa";
+  "module.services.google_project_iam_member.run_eventarc_receiver" -> "module.services.google_service_account.run_sa";
+  "module.services.google_project_iam_member.run_firestore" -> "module.services.google_service_account.run_sa";
+  "module.services.google_project_iam_member.run_invoker" -> "module.services.google_service_account.run_sa";
+  "module.services.google_project_iam_member.run_pubsub_publisher" -> "module.services.google_service_account.run_sa";
+  "module.services.google_project_iam_member.run_pubsub_subscriber" -> "module.services.google_service_account.run_sa";
+  "module.services.google_project_iam_member.run_storage" -> "module.services.google_service_account.run_sa";
+  "module.services.google_service_account.bot_sa" -> "module.database.google_firestore_database.default";
+  "module.services.google_service_account.bot_sa" -> "module.networking.google_compute_router_nat.nat";
+  "module.services.google_service_account.bot_sa" -> "module.networking.google_compute_subnetwork.subnet";
+  "module.services.google_service_account.bot_sa" -> "module.networking.google_vpc_access_connector.connector";
+  "module.services.google_service_account.bot_sa" -> "module.pubsub.google_pubsub_subscription.subscription";
+  "module.services.google_service_account.bot_sa" -> "module.storage.google_storage_bucket.bucket";
+  "module.services.google_service_account.run_sa" -> "module.database.google_firestore_database.default";
+  "module.services.google_service_account.run_sa" -> "module.networking.google_compute_router_nat.nat";
+  "module.services.google_service_account.run_sa" -> "module.networking.google_compute_subnetwork.subnet";
+  "module.services.google_service_account.run_sa" -> "module.networking.google_vpc_access_connector.connector";
+  "module.services.google_service_account.run_sa" -> "module.pubsub.google_pubsub_subscription.subscription";
+  "module.services.google_service_account.run_sa" -> "module.storage.google_storage_bucket.bucket";
+  "module.services.google_storage_bucket.func_source_bucket" -> "module.database.google_firestore_database.default";
+  "module.services.google_storage_bucket.func_source_bucket" -> "module.networking.google_compute_router_nat.nat";
+  "module.services.google_storage_bucket.func_source_bucket" -> "module.networking.google_compute_subnetwork.subnet";
+  "module.services.google_storage_bucket.func_source_bucket" -> "module.networking.google_vpc_access_connector.connector";
+  "module.services.google_storage_bucket.func_source_bucket" -> "module.pubsub.google_pubsub_subscription.subscription";
+  "module.services.google_storage_bucket.func_source_bucket" -> "module.storage.google_storage_bucket.bucket";
+  "module.services.google_storage_bucket_object.func_zip" -> "module.services.data.archive_file.dummy_func";
+  "module.services.google_storage_bucket_object.func_zip" -> "module.services.google_storage_bucket.func_source_bucket";
+  "module.storage.google_storage_bucket.bucket" -> "random_string.suffix";
+  "module.storage.google_storage_bucket.bucket" -> "module.project.data.google_project.project";
+  "module.storage.google_storage_bucket.bucket" -> "module.project.google_firebase_web_app.default";
+}
