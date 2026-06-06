@@ -53,8 +53,6 @@ export async function fetchGitHubRepos(username: string): Promise<GitHubRepo[]> 
 
 export async function fetchGitHubEvents(username: string): Promise<any[]> {
   try {
-    console.log("Fetching events for:", username);
-    
     // Try public events first
     const responsePublic = await fetch(`https://api.github.com/users/${username}/events/public?per_page=100`);
     let data = [];
@@ -65,7 +63,6 @@ export async function fetchGitHubEvents(username: string): Promise<any[]> {
     
     // If empty or failed, try all events
     if (!Array.isArray(data) || data.length === 0) {
-      console.log("Public events empty, trying all events...");
       const responseAll = await fetch(`https://api.github.com/users/${username}/events?per_page=100`);
       if (responseAll.ok) {
         const allData = await responseAll.json();
@@ -74,8 +71,6 @@ export async function fetchGitHubEvents(username: string): Promise<any[]> {
         }
       }
     }
-    
-    console.log("Events received:", data.length, data[0]?.type);
     
     return Array.isArray(data) ? data : [];
   } catch (error) {

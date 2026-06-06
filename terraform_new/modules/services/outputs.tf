@@ -1,14 +1,29 @@
 output "backend_url" {
-  description = "The URL of the FastAPI backend Cloud Run service."
+  description = "FastAPI backend Cloud Run URL."
   value       = google_cloud_run_v2_service.backend.uri
 }
 
 output "inference_url" {
-  description = "The URL of the model inference Cloud Run service."
-  value       = google_cloud_run_v2_service.inference.uri
+  description = "Model inference Cloud Run URL (empty when using Gemini)."
+  value       = local.inference_url
+}
+
+output "bot_url" {
+  description = "Telegram bot Cloud Run URL (health-check endpoint)."
+  value       = google_cloud_run_v2_service.bot.uri
+}
+
+output "frontend_url" {
+  description = "PersonaProbe website Cloud Run URL."
+  value       = google_cloud_run_v2_service.frontend.uri
 }
 
 output "bot_service_account_email" {
-  description = "The email of the service account allocated to the Telegram Bot."
+  description = "Service account email for the Telegram bot."
   value       = google_service_account.bot_sa.email
+}
+
+output "run_service_account_email" {
+  description = "Service account email for Cloud Run services."
+  value       = google_service_account.run_sa.email
 }

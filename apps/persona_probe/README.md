@@ -32,27 +32,19 @@ PersonaProbe turns a GitHub username into a polished developer profile report. I
 
 1. Install dependencies:
    `npm install`
-2. Create a local env file from [.env.example](.env.example) and set `GEMINI_API_KEY` plus the `VITE_FIREBASE_*` values from your Firebase project.
-3. In Firebase Console, enable the sign-in methods you plan to use. The app supports Email/Password, Google, and GitHub login.
+2. Create a local env file from [.env.example](.env.example) and set the `VITE_FIREBASE_*` values from your Firebase project (and `VITE_GEMINI_API_KEY` if using Gemini).
+3. In Firebase Console, enable **Email/Password** and **Google** sign-in under Authentication → Sign-in method.
 4. Start the app:
    `npm run dev`
 
 ## Environment Variables
 
-The app expects the following variable at runtime:
+Copy [.env.example](.env.example) to `.env.local` and fill in:
 
-- `GEMINI_API_KEY`: Required for Gemini analysis.
+- `VITE_FIREBASE_*` — Firebase Web SDK config (Firebase Console → Project settings)
+- `VITE_GEMINI_API_KEY` — required when using the gemini model variant locally
 
-The Firebase client also reads these Vite variables from `.env.local`:
-
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
-
-For local development, store them in [.env.local](.env.local). The repository also includes [.env.example](.env.example) as a template.
+Authentication is handled by **Firebase Auth** (email/password and Google). No custom backend OAuth is required.
 
 ## Showcase Tips
 

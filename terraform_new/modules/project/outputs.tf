@@ -12,3 +12,8 @@ output "auth_domain" {
   description = "The default authentication domain for the Firebase project."
   value       = "${var.project_id}.firebaseapp.com"
 }
+
+output "hosting_site_id" {
+  description = "Firebase Hosting site ID."
+  value       = google_firebase_hosting_site.default.site_id
+}

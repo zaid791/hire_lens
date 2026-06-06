@@ -2,13 +2,20 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+function requireEnv(value: string | undefined, name: string): string {
+  if (!value) {
+    throw new Error(`Missing ${name} in apps/persona_probe/.env.local`);
+  }
+  return value;
+}
+
 const firebaseConfig = {
-  apiKey: "AIzaSyAQA5XAaud1D6TWEoJilqRSOXF5j9ofLJA",
-  authDomain: "hire-lens-498217.firebaseapp.com",
-  projectId: "hire-lens-498217",
-  storageBucket: "hire-lens-498217.firebasestorage.app",
-  messagingSenderId: "406092103365",
-  appId: "1:406092103365:web:5d8c7f13067de2e0b8faac"
+  apiKey: requireEnv(import.meta.env.VITE_FIREBASE_API_KEY, 'VITE_FIREBASE_API_KEY'),
+  authDomain: requireEnv(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, 'VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: requireEnv(import.meta.env.VITE_FIREBASE_PROJECT_ID, 'VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: requireEnv(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, 'VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: requireEnv(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID, 'VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: requireEnv(import.meta.env.VITE_FIREBASE_APP_ID, 'VITE_FIREBASE_APP_ID')
 };
 
 // Initialize Firebase

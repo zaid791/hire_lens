@@ -4,6 +4,7 @@ import { fetchGitHubProfile, fetchGitHubRepos, fetchGitHubEvents, GitHubNotFound
 import { analyzeLanguages } from './utils/analyzeLanguages.js';
 import { analyzeCommitPattern } from './utils/analyzeCommitPattern.js';
 import { analyzeWithGemini } from './services/geminiService.js';
+import { analyzeWithInference } from './services/inferenceService.js';
 import { checkAndIncrementRequestLimit, getUserProfile, generateLinkingCode, LIMITS } from './services/firebaseService.js';
 import { FullProfile } from './types/index.js';
 
@@ -12,15 +13,35 @@ dotenv.config();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const MODEL_PROVIDER = process.env.MODEL_PROVIDER || 'gemini';
+const INFERENCE_SERVICE_URL = process.env.INFERENCE_SERVICE_URL || '';
+const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
 if (!BOT_TOKEN) {
   console.error('Error: TELEGRAM_BOT_TOKEN is not set in environment variables.');
   process.exit(1);
 }
 
-if (!GEMINI_API_KEY) {
-  console.error('Error: GEMINI_API_KEY is not set in environment variables.');
+if (MODEL_PROVIDER === 'gemini' && !GEMINI_API_KEY) {
+  console.error('Error: GEMINI_API_KEY is required when MODEL_PROVIDER=gemini.');
   process.exit(1);
+}
+
+if (MODEL_PROVIDER === 'opensource' && !INFERENCE_SERVICE_URL) {
+  console.error('Error: INFERENCE_SERVICE_URL is required when MODEL_PROVIDER=opensource.');
+  process.exit(1);
+}
+
+async function runAnalysis(
+  profile: Parameters<typeof analyzeWithGemini>[0],
+  repos: Parameters<typeof analyzeWithGemini>[1],
+  languageStats: Parameters<typeof analyzeWithGemini>[2],
+  commitPattern: Parameters<typeof analyzeWithGemini>[3]
+) {
+  if (MODEL_PROVIDER === 'opensource') {
+    return analyzeWithInference(profile, repos, languageStats, commitPattern);
+  }
+  return analyzeWithGemini(profile, repos, languageStats, commitPattern);
 }
 
 const bot = new Telegraf(BOT_TOKEN);
@@ -185,7 +206,7 @@ Upgrade to our Premium Subscription to unlock unlimited candidate lookups, direc
 
     const languageStats = analyzeLanguages(repos);
     const commitPattern = analyzeCommitPattern(events, repos);
-    const analysis = await analyzeWithGemini(profile, repos, languageStats, commitPattern);
+    const analysis = await runAnalysis(profile, repos, languageStats, commitPattern);
 
     const reportHtml = formatProfileReport({ profile, repos, languageStats, commitPattern, analysis });
     try {
@@ -254,7 +275,7 @@ bot.command('link', async (ctx) => {
 
   try {
     const code = await generateLinkingCode(chatId);
-    const linkUrl = `http://localhost:3000?linkCode=${code}`;
+    const linkUrl = `${APP_URL.replace(/\/$/, '')}?linkCode=${code}`;
 
     const linkMsg = `🔗 <b>Connect with Web Dashboard</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━

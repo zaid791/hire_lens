@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signInWithPopup, 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
   GoogleAuthProvider,
-  GithubAuthProvider
 } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -38,17 +37,14 @@ export function AuthModal({ onClose }: AuthModalProps) {
     }
   };
 
-  const handleOAuth = async (providerName: 'google' | 'github') => {
+  const handleGoogleSignIn = async () => {
     setError(null);
     setIsLoading(true);
     try {
-      const provider = providerName === 'google' 
-        ? new GoogleAuthProvider() 
-        : new GithubAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(auth, new GoogleAuthProvider());
       onClose();
     } catch (err: any) {
-      setError(err.message || 'OAuth Sign-in failed');
+      setError(err.message || 'Google sign-in failed');
     } finally {
       setIsLoading(false);
     }
@@ -57,9 +53,8 @@ export function AuthModal({ onClose }: AuthModalProps) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] px-4">
       <div className="bg-[#0c1322] border border-[#2e3545] rounded-2xl p-8 max-w-md w-full relative shadow-[0_0_50px_rgba(124,58,237,0.15)]">
-        
-        {/* Close Button */}
-        <button 
+
+        <button
           onClick={onClose}
           className="absolute top-4 right-4 text-[#958da1] hover:text-white"
         >
@@ -83,8 +78,8 @@ export function AuthModal({ onClose }: AuthModalProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-mono uppercase text-[#958da1] mb-1.5">Email Address</label>
-            <input 
-              type="email" 
+            <input
+              type="email"
               required
               className="w-full bg-[#070e1d] border border-[#2e3545] text-white rounded-lg px-4 py-3 focus:outline-none focus:border-[#7c3aed] text-sm"
               placeholder="name@company.com"
@@ -95,8 +90,8 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
           <div>
             <label className="block text-xs font-mono uppercase text-[#958da1] mb-1.5">Password</label>
-            <input 
-              type="password" 
+            <input
+              type="password"
               required
               className="w-full bg-[#070e1d] border border-[#2e3545] text-white rounded-lg px-4 py-3 focus:outline-none focus:border-[#7c3aed] text-sm"
               placeholder="••••••••"
@@ -119,28 +114,18 @@ export function AuthModal({ onClose }: AuthModalProps) {
           <span className="relative bg-[#0c1322] px-3 text-xs text-[#958da1] uppercase tracking-wider font-mono">Or Continue With</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => handleOAuth('google')}
-            disabled={isLoading}
-            className="flex items-center justify-center gap-2 bg-[#070e1d] border border-[#2e3545] text-white rounded-lg py-2.5 text-xs font-bold hover:bg-[#141b2b] transition-all disabled:opacity-50"
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-4 h-4" />
-            Google
-          </button>
-          <button
-            onClick={() => handleOAuth('github')}
-            disabled={isLoading}
-            className="flex items-center justify-center gap-2 bg-[#070e1d] border border-[#2e3545] text-white rounded-lg py-2.5 text-xs font-bold hover:bg-[#141b2b] transition-all disabled:opacity-50"
-          >
-            <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" className="w-4 h-4 invert" />
-            GitHub
-          </button>
-        </div>
+        <button
+          onClick={handleGoogleSignIn}
+          disabled={isLoading}
+          className="w-full flex items-center justify-center gap-2 bg-[#070e1d] border border-[#2e3545] text-white rounded-lg py-2.5 text-xs font-bold hover:bg-[#141b2b] transition-all disabled:opacity-50"
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-4 h-4" />
+          Continue with Google
+        </button>
 
         <p className="text-center text-xs text-[#958da1] mt-6">
           {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-          <button 
+          <button
             type="button"
             onClick={() => setIsSignUp(!isSignUp)}
             className="text-[#d2bbff] hover:underline font-bold"

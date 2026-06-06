@@ -11,7 +11,8 @@ terraform {
   }
 }
 
-# 1. Custom Service Accounts
+# ── Service accounts ─────────────────────────────────────────────────────────
+
 resource "google_service_account" "bot_sa" {
   project      = var.project_id
   account_id   = var.bot_sa_id
@@ -24,8 +25,8 @@ resource "google_service_account" "run_sa" {
   display_name = "Cloud Run Execution Service Account"
 }
 
-# 2. IAM Roles and Bindings
-# Grant Firestore access (datastore.user) to both service accounts
+# ── IAM: data, pub/sub, run, secrets ─────────────────────────────────────────
+
 resource "google_project_iam_member" "bot_firestore" {
   project = var.project_id
   role    = "roles/datastore.user"
@@ -38,22 +39,18 @@ resource "google_project_iam_member" "run_firestore" {
   member  = "serviceAccount:${google_service_account.run_sa.email}"
 }
 
-# Grant Cloud Storage Object User to Cloud Run SA (for data storage)
 resource "google_project_iam_member" "run_storage" {
   project = var.project_id
   role    = "roles/storage.objectUser"
   member  = "serviceAccount:${google_service_account.run_sa.email}"
 }
 
-# Grant Pub/Sub permissions
-# Telegram Bot needs to publish to the topic
 resource "google_project_iam_member" "bot_pubsub_publisher" {
   project = var.project_id
   role    = "roles/pubsub.publisher"
   member  = "serviceAccount:${google_service_account.bot_sa.email}"
 }
 
-# Cloud Run SA needs both publisher and subscriber rights
 resource "google_project_iam_member" "run_pubsub_publisher" {
   project = var.project_id
   role    = "roles/pubsub.publisher"
@@ -66,21 +63,35 @@ resource "google_project_iam_member" "run_pubsub_subscriber" {
   member  = "serviceAccount:${google_service_account.run_sa.email}"
 }
 
-# Grant Cloud Run invoker rights to run_sa (so it can invoke model-inference internally)
 resource "google_project_iam_member" "run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
   member  = "serviceAccount:${google_service_account.run_sa.email}"
 }
 
-# Grant Eventarc event receiver role to Cloud Run SA for Cloud Function triggers
 resource "google_project_iam_member" "run_eventarc_receiver" {
   project = var.project_id
   role    = "roles/eventarc.eventReceiver"
   member  = "serviceAccount:${google_service_account.run_sa.email}"
 }
 
-# 3. Create GCS source bucket for Cloud Function code
+resource "google_secret_manager_secret_iam_member" "bot_telegram_token" {
+  project   = var.project_id
+  secret_id = var.telegram_bot_token_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "bot_gemini_key" {
+  count     = var.model_provider == "gemini" ? 1 : 0
+  project   = var.project_id
+  secret_id = var.gemini_api_key_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+# ── Cloud Function source bucket ─────────────────────────────────────────────
+
 resource "google_storage_bucket" "func_source_bucket" {
   project                     = var.project_id
   name                        = "${var.project_id}-fn-sources"
@@ -90,11 +101,10 @@ resource "google_storage_bucket" "func_source_bucket" {
   public_access_prevention    = "enforced"
 }
 
-# Generate a dummy zip file dynamically for initial function deployment
 data "archive_file" "dummy_func" {
   type        = "zip"
   output_path = "${path.module}/dummy_func.zip"
-  
+
   source {
     content  = "exports.helloPubSub = (event, context) => { console.log('Pub/Sub event received:', event); };"
     filename = "index.js"
@@ -107,16 +117,56 @@ resource "google_storage_bucket_object" "func_zip" {
   source = data.archive_file.dummy_func.output_path
 }
 
-# 4. FastAPI Backend Cloud Run Service (Public Ingress)
-resource "google_cloud_run_v2_service" "backend" {
-  project             = var.project_id
-  name                = var.backend_service_name
-  location            = var.region
-  ingress             = "INGRESS_TRAFFIC_ALL"
+# ── Frontend (PersonaProbe website) ──────────────────────────────────────────
+
+resource "google_cloud_run_v2_service" "frontend" {
+  project  = var.project_id
+  name     = var.frontend_service_name
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
+  labels   = var.labels
 
   template {
     service_account = google_service_account.run_sa.email
-    
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 5
+    }
+
+    containers {
+      image = var.frontend_image
+      ports {
+        container_port = 80
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [client, client_version]
+  }
+}
+
+resource "google_cloud_run_v2_service_iam_member" "frontend_public" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.frontend.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# ── FastAPI backend ──────────────────────────────────────────────────────────
+
+resource "google_cloud_run_v2_service" "backend" {
+  project  = var.project_id
+  name     = var.backend_service_name
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
+  labels   = var.labels
+
+  template {
+    service_account = google_service_account.run_sa.email
+
     scaling {
       min_instance_count = 0
       max_instance_count = 5
@@ -124,7 +174,7 @@ resource "google_cloud_run_v2_service" "backend" {
 
     containers {
       image = var.backend_image
-      
+
       env {
         name  = "PROJECT_ID"
         value = var.project_id
@@ -137,11 +187,28 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "PUBSUB_TOPIC"
         value = var.pubsub_topic_name
       }
+      env {
+        name  = "APP_URL"
+        value = google_cloud_run_v2_service.frontend.uri
+      }
+      env {
+        name  = "MODEL_PROVIDER"
+        value = var.model_provider
+      }
+      env {
+        name  = "INFERENCE_SERVICE_URL"
+        value = local.inference_url
+      }
     }
   }
+
+  lifecycle {
+    ignore_changes = [client, client_version]
+  }
+
+  depends_on = [google_cloud_run_v2_service.frontend]
 }
 
-# Make FastAPI Backend Cloud Run service accessible to the public
 resource "google_cloud_run_v2_service_iam_member" "backend_public" {
   project  = var.project_id
   location = var.region
@@ -150,12 +217,15 @@ resource "google_cloud_run_v2_service_iam_member" "backend_public" {
   member   = "allUsers"
 }
 
-# 5. Model Inference Cloud Run Service (Internal Only)
+# ── Model inference (opensource variant only) ────────────────────────────────
+
 resource "google_cloud_run_v2_service" "inference" {
-  project             = var.project_id
-  name                = var.inference_service_name
-  location            = var.region
-  ingress             = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  count    = var.deploy_inference ? 1 : 0
+  project  = var.project_id
+  name     = var.inference_service_name
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  labels   = var.labels
 
   template {
     service_account = google_service_account.run_sa.email
@@ -172,21 +242,127 @@ resource "google_cloud_run_v2_service" "inference" {
 
     containers {
       image = var.inference_image
-      
+
       env {
         name  = "PROJECT_ID"
         value = var.project_id
       }
+      env {
+        name  = "MODEL_PROVIDER"
+        value = var.model_provider
+      }
     }
+  }
+
+  lifecycle {
+    ignore_changes = [client, client_version]
   }
 }
 
-# 6. Cloud Function 2nd Gen (triggered by Pub/Sub analysis jobs)
+resource "google_cloud_run_v2_service_iam_member" "inference_invoker" {
+  count    = var.deploy_inference ? 1 : 0
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.inference[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.run_sa.email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "inference_bot_invoker" {
+  count    = var.deploy_inference ? 1 : 0
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.inference[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+# ── Telegram bot ─────────────────────────────────────────────────────────────
+
+resource "google_cloud_run_v2_service" "bot" {
+  project  = var.project_id
+  name     = var.bot_service_name
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
+  labels   = var.labels
+
+  template {
+    service_account = google_service_account.bot_sa.email
+
+    scaling {
+      min_instance_count = var.bot_min_instances
+      max_instance_count = 1
+    }
+
+    containers {
+      image = var.bot_image
+
+      env {
+        name  = "APP_URL"
+        value = google_cloud_run_v2_service.frontend.uri
+      }
+      env {
+        name  = "MODEL_PROVIDER"
+        value = var.model_provider
+      }
+      env {
+        name  = "INFERENCE_SERVICE_URL"
+        value = local.inference_url
+      }
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+      env {
+        name = "TELEGRAM_BOT_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = var.telegram_bot_token_secret_id
+            version = "latest"
+          }
+        }
+      }
+      dynamic "env" {
+        for_each = var.model_provider == "gemini" ? [1] : []
+        content {
+          name = "GEMINI_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = var.gemini_api_key_secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [client, client_version]
+  }
+
+  depends_on = [
+    google_cloud_run_v2_service.frontend,
+    google_secret_manager_secret_iam_member.bot_telegram_token
+  ]
+}
+
+resource "google_cloud_run_v2_service_iam_member" "bot_public" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.bot.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+# ── Pub/Sub background function ──────────────────────────────────────────────
+
 resource "google_cloudfunctions2_function" "background_handler" {
   project     = var.project_id
   name        = var.background_function_name
   location    = var.region
   description = "Background processor for Hire Lens GitHub candidate analysis"
+  labels      = var.labels
 
   build_config {
     runtime     = "nodejs20"
@@ -206,10 +382,12 @@ resource "google_cloudfunctions2_function" "background_handler" {
     service_account_email = google_service_account.run_sa.email
 
     vpc_connector = var.vpc_connector_id
-    
+
     environment_variables = {
-      PROJECT_ID     = var.project_id
-      STORAGE_BUCKET = var.storage_bucket_name
+      PROJECT_ID      = var.project_id
+      STORAGE_BUCKET  = var.storage_bucket_name
+      MODEL_PROVIDER  = var.model_provider
+      INFERENCE_URL   = local.inference_url
     }
   }
 
@@ -219,4 +397,8 @@ resource "google_cloudfunctions2_function" "background_handler" {
     pubsub_topic   = "projects/${var.project_id}/topics/${var.pubsub_topic_name}"
     retry_policy   = "RETRY_POLICY_RETRY"
   }
+}
+
+locals {
+  inference_url = var.deploy_inference ? google_cloud_run_v2_service.inference[0].uri : ""
 }

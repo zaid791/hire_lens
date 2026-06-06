@@ -1,17 +1,37 @@
-# GCP settings
+# ── Required ─────────────────────────────────────────────────────────────────
+
 project_id         = "your-gcp-project-id"
+telegram_bot_token = "123456789:ABC-your-telegram-bot-token"
+
+# ── Model variant ────────────────────────────────────────────────────────────
+# "gemini"      → uses Google Gemini API (requires gemini_api_key below)
+# "opensource"  → deploys internal Cloud Run inference service (no Gemini key)
+
+model_provider = "gemini"
+gemini_api_key = "your-gemini-api-key"
+
+# ── Optional overrides ───────────────────────────────────────────────────────
+
 project_name       = "hirelens"
 environment        = "dev"
 region             = "europe-west1"
 zone               = "europe-west1-b"
-
-# Firestore configuration
 firestore_location = "eur3"
 
-# Docker container images
-backend_image      = "gcr.io/your-gcp-project-id/backend:latest"
-inference_image    = "gcr.io/your-gcp-project-id/model-inference:latest"
+# Set to false to skip Cloud Build during apply (use pre-built image URIs instead)
+build_images = true
 
-# Optional: Firebase Authentication GitHub integration credentials
-github_client_id     = "your-github-client-id"
-github_client_secret = "your-github-client-secret"
+# Telegram bot must stay warm for long-polling
+bot_min_instances = 1
+
+# Write .env.production.generated files into the repo after apply
+generate_local_env_files = true
+
+# Path to monorepo root relative to terraform_new/
+repo_root = ".."
+
+# ── Pre-built images (only used when build_images = false) ───────────────────
+# backend_image   = "europe-west1-docker.pkg.dev/your-project/hire-lens/backend:latest"
+# inference_image = "europe-west1-docker.pkg.dev/your-project/hire-lens/inference:latest"
+# bot_image       = "europe-west1-docker.pkg.dev/your-project/hire-lens/bot:latest"
+# frontend_image  = "europe-west1-docker.pkg.dev/your-project/hire-lens/frontend:latest"

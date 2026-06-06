@@ -14,8 +14,12 @@ terraform {
 locals {
   services = [
     "serviceusage.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "iam.googleapis.com",
+    "compute.googleapis.com",
     "firebase.googleapis.com",
     "firestore.googleapis.com",
+    "firebaserules.googleapis.com",
     "identitytoolkit.googleapis.com",
     "pubsub.googleapis.com",
     "run.googleapis.com",
@@ -24,7 +28,9 @@ locals {
     "storage.googleapis.com",
     "cloudbuild.googleapis.com",
     "artifactregistry.googleapis.com",
-    "eventarc.googleapis.com"
+    "eventarc.googleapis.com",
+    "secretmanager.googleapis.com",
+    "firebasehosting.googleapis.com"
   ]
 }
 
@@ -48,6 +54,14 @@ resource "google_firebase_web_app" "default" {
   project      = var.project_id
   display_name = "Hire Lens Web Dashboard"
   depends_on   = [google_firebase_project.default]
+}
+
+# Firebase Hosting site (custom domain can be attached later in Firebase console)
+resource "google_firebase_hosting_site" "default" {
+  provider = google-beta
+  project  = var.project_id
+  site_id  = var.project_id
+  depends_on = [google_firebase_project.default]
 }
 
 data "google_project" "project" {

@@ -32,7 +32,6 @@ export function analyzeCommitPattern(events: any[], repos: any[]): CommitPattern
   }
 
   let pushEvents = events.filter((e) => e.type === 'PushEvent');
-  console.log('analyzeCommitPattern: pushEvents count:', pushEvents.length);
   
   // Fallback to all events if no PushEvents
   if (pushEvents.length === 0) {

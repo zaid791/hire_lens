@@ -14,6 +14,7 @@ This folder will contain the Telegram-first user interface for Hire Lens.
 - No infrastructure code here
 - No model hosting code here
 - Shared request and response types should live in `packages/shared`
+- Set `APP_URL` in `.env` so the `/link` command points at your local dashboard during development and at the deployed frontend in production
 
 ## Suggested ownership
 

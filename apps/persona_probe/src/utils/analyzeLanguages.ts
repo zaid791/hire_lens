@@ -13,7 +13,6 @@ export function analyzeLanguages(repos: any[]): LanguageStat[] {
   }
 
   if (totalReposWithLanguage === 0) {
-    console.log('analyzeLanguages: No languages found, returning Unknown');
     return [{ language: "Unknown", percentage: 100 }];
   }
 
