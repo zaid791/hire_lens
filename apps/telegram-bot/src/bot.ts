@@ -323,24 +323,100 @@ bot.on('text', async (ctx) => {
 
 
 import http from 'http';
+import { GoogleAuth } from 'google-auth-library';
 
-// Trik dla Google Cloud Run - udajemy, że nasłuchujemy na porcie 8080
-const PORT = process.env.PORT || 8080;
-http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot is running...');
-}).listen(PORT, () => {
-  console.log(`Google Cloud Health Check listening on port ${PORT}`);
+const PORT = Number(process.env.PORT) || 8080;
+const WEBHOOK_PATH = '/telegram/webhook';
+
+bot.catch((err, ctx) => {
+  console.error('Unhandled bot error:', err);
+  ctx.reply('Something went wrong. Please try again in a moment.').catch(() => undefined);
 });
 
+async function resolvePublicUrl(): Promise<string | null> {
+  if (process.env.BOT_PUBLIC_URL) {
+    return process.env.BOT_PUBLIC_URL.replace(/\/$/, '');
+  }
 
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+  const serviceName = process.env.K_SERVICE;
+  const region = process.env.GOOGLE_CLOUD_REGION || 'europe-west1';
+  if (!projectId || !serviceName) {
+    return null;
+  }
 
-// Start the bot
-bot.launch().catch((err) => {
-  console.error('❌ Failed to start the Telegram Bot:', err);
+  try {
+    const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
+    const client = await auth.getClient();
+    const response = await client.request<{ uri?: string }>({
+      url: `https://run.googleapis.com/v2/projects/${projectId}/locations/${region}/services/${serviceName}`,
+    });
+    return response.data.uri?.replace(/\/$/, '') ?? null;
+  } catch (error) {
+    console.error('Failed to resolve Cloud Run service URL:', error);
+    return null;
+  }
+}
+
+async function startBot() {
+  const cloudRunService = process.env.K_SERVICE;
+  const publicUrl = cloudRunService ? await resolvePublicUrl() : null;
+
+  if (cloudRunService && publicUrl) {
+    const server = http.createServer((req, res) => {
+      if (req.method === 'POST' && req.url === WEBHOOK_PATH) {
+        let body = '';
+        req.on('data', (chunk) => { body += chunk; });
+        req.on('end', () => {
+          try {
+            const update = JSON.parse(body);
+            bot.handleUpdate(update)
+              .then(() => {
+                res.writeHead(200);
+                res.end('OK');
+              })
+              .catch((error) => {
+                console.error('Webhook update failed:', error);
+                res.writeHead(500);
+                res.end('Error');
+              });
+          } catch (error) {
+            console.error('Invalid webhook payload:', error);
+            res.writeHead(400);
+            res.end('Bad Request');
+          }
+        });
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('Bot is running (webhook mode)...');
+    });
+
+    server.listen(PORT, async () => {
+      const webhookUrl = `${publicUrl}${WEBHOOK_PATH}`;
+      await bot.telegram.setWebhook(webhookUrl, { drop_pending_updates: true });
+      console.log(`Webhook registered at ${webhookUrl}`);
+      console.log(`Health check listening on port ${PORT}`);
+    });
+    return;
+  }
+
+  http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot is running (polling mode)...');
+  }).listen(PORT, () => {
+    console.log(`Health check listening on port ${PORT}`);
+  });
+
+  await bot.launch({ dropPendingUpdates: true });
+  console.log('Hire Lens Telegram Bot is running (long polling)...');
+}
+
+startBot().catch((err) => {
+  console.error('Failed to start the Telegram Bot:', err);
+  process.exit(1);
 });
-console.log('🚀 Hire Lens Telegram Bot is running locally...');
 
-// Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));

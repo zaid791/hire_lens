@@ -17,10 +17,10 @@ module "secrets" {
 module "artifact_registry" {
   source = "./modules/artifact_registry"
 
-  project_id     = var.project_id
-  region         = var.region
-  repository_id  = var.artifact_registry_repo
-  labels         = local.common_labels
+  project_id    = var.project_id
+  region        = var.region
+  repository_id = var.artifact_registry_repo
+  labels        = local.common_labels
 
   depends_on = [module.project]
 }
@@ -96,7 +96,7 @@ module "build" {
   model_provider               = var.model_provider
   firebase_api_key             = module.auth.api_key
   firebase_auth_domain         = module.project.auth_domain
-  firebase_storage_bucket      = module.storage.bucket_name
+  firebase_storage_bucket      = local.firebase_storage_bucket
   firebase_messaging_sender_id = module.project.project_number
   firebase_app_id              = module.project.web_app_id
   gemini_api_key               = var.gemini_api_key
@@ -112,27 +112,27 @@ module "build" {
 module "services" {
   source = "./modules/services"
 
-  project_id               = var.project_id
-  region                   = var.region
-  vpc_connector_id         = module.networking.vpc_connector_id
-  pubsub_topic_name        = module.pubsub.topic_name
-  pubsub_subscription_name = module.pubsub.subscription_name
-  storage_bucket_name      = module.storage.bucket_name
-  backend_service_name     = local.backend_service_name
-  inference_service_name   = local.inference_service_name
-  bot_service_name         = local.bot_service_name
-  frontend_service_name    = local.frontend_service_name
-  background_function_name = local.background_function_name
-  bot_sa_id                = local.bot_service_account_id
-  run_sa_id                = local.run_service_account_id
-  backend_image            = local.resolved_backend_image
-  inference_image          = local.resolved_inference_image
-  bot_image                = local.resolved_bot_image
-  frontend_image           = local.resolved_frontend_image
-  labels                   = local.common_labels
-  model_provider           = var.model_provider
-  deploy_inference         = local.deploy_inference
-  bot_min_instances        = var.bot_min_instances
+  project_id                   = var.project_id
+  region                       = var.region
+  vpc_connector_id             = module.networking.vpc_connector_id
+  pubsub_topic_name            = module.pubsub.topic_name
+  pubsub_subscription_name     = module.pubsub.subscription_name
+  storage_bucket_name          = module.storage.bucket_name
+  backend_service_name         = local.backend_service_name
+  inference_service_name       = local.inference_service_name
+  bot_service_name             = local.bot_service_name
+  frontend_service_name        = local.frontend_service_name
+  background_function_name     = local.background_function_name
+  bot_sa_id                    = local.bot_service_account_id
+  run_sa_id                    = local.run_service_account_id
+  backend_image                = local.resolved_backend_image
+  inference_image              = local.resolved_inference_image
+  bot_image                    = local.resolved_bot_image
+  frontend_image               = local.resolved_frontend_image
+  labels                       = local.common_labels
+  model_provider               = var.model_provider
+  deploy_inference             = local.deploy_inference
+  bot_min_instances            = var.bot_min_instances
   telegram_bot_token_secret_id = module.secrets.telegram_bot_token_secret_id
   gemini_api_key_secret_id     = module.secrets.gemini_api_key_secret_id
 
@@ -161,10 +161,18 @@ module "build_post" {
   model_provider               = var.model_provider
   firebase_api_key             = module.auth.api_key
   firebase_auth_domain         = module.project.auth_domain
-  firebase_storage_bucket      = module.storage.bucket_name
+  firebase_storage_bucket      = local.firebase_storage_bucket
   firebase_messaging_sender_id = module.project.project_number
   firebase_app_id              = module.project.web_app_id
   gemini_api_key               = var.gemini_api_key
+
+  depends_on = [module.services]
+}
+
+module "auth_config" {
+  source       = "./modules/auth_config"
+  project_id   = var.project_id
+  frontend_url = module.services.frontend_url
 
   depends_on = [module.services]
 }
@@ -179,7 +187,7 @@ resource "local_file" "frontend_env" {
     firebase_api_key             = module.auth.api_key
     firebase_auth_domain         = module.project.auth_domain
     firebase_project_id          = var.project_id
-    firebase_storage_bucket      = module.storage.bucket_name
+    firebase_storage_bucket      = local.firebase_storage_bucket
     firebase_messaging_sender_id = module.project.project_number
     firebase_app_id              = module.project.web_app_id
     gemini_api_key               = var.gemini_api_key
@@ -195,10 +203,10 @@ resource "local_file" "bot_env" {
 
   filename = "${abspath(var.repo_root)}/apps/telegram-bot/.env.production.generated"
   content = templatefile("${path.module}/templates/bot.env.tpl", {
-    app_url         = module.services.frontend_url
-    model_provider  = var.model_provider
-    inference_url   = module.services.inference_url
-    project_id      = var.project_id
+    app_url        = module.services.frontend_url
+    model_provider = var.model_provider
+    inference_url  = module.services.inference_url
+    project_id     = var.project_id
   })
 }
 
@@ -207,11 +215,11 @@ resource "local_file" "backend_env" {
 
   filename = "${abspath(var.repo_root)}/services/backend/.env.production.generated"
   content = templatefile("${path.module}/templates/backend.env.tpl", {
-    project_id      = var.project_id
-    storage_bucket  = module.storage.bucket_name
-    pubsub_topic    = module.pubsub.topic_name
-    app_url         = module.services.frontend_url
-    model_provider  = var.model_provider
-    inference_url   = module.services.inference_url
+    project_id     = var.project_id
+    storage_bucket = module.storage.bucket_name
+    pubsub_topic   = module.pubsub.topic_name
+    app_url        = module.services.frontend_url
+    model_provider = var.model_provider
+    inference_url  = module.services.inference_url
   })
 }

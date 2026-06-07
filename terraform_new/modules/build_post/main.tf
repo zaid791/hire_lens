@@ -16,6 +16,7 @@ resource "null_resource" "rebuild_frontend" {
 
   provisioner "local-exec" {
     command = <<-EOT
+      export CLOUDSDK_AUTH_ACCESS_TOKEN="$(gcloud auth application-default print-access-token)"
       gcloud builds submit "${abspath(var.repo_root)}/apps/persona_probe" \
         --project="${var.project_id}" \
         --region="${var.region}" \

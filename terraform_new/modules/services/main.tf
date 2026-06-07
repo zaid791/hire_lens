@@ -33,6 +33,12 @@ resource "google_project_iam_member" "bot_firestore" {
   member  = "serviceAccount:${google_service_account.bot_sa.email}"
 }
 
+resource "google_project_iam_member" "bot_run_viewer" {
+  project = var.project_id
+  role    = "roles/run.viewer"
+  member  = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
 resource "google_project_iam_member" "run_firestore" {
   project = var.project_id
   role    = "roles/datastore.user"
@@ -314,6 +320,10 @@ resource "google_cloud_run_v2_service" "bot" {
         value = var.project_id
       }
       env {
+        name  = "GOOGLE_CLOUD_REGION"
+        value = var.region
+      }
+      env {
         name = "TELEGRAM_BOT_TOKEN"
         value_source {
           secret_key_ref {
@@ -384,10 +394,10 @@ resource "google_cloudfunctions2_function" "background_handler" {
     vpc_connector = var.vpc_connector_id
 
     environment_variables = {
-      PROJECT_ID      = var.project_id
-      STORAGE_BUCKET  = var.storage_bucket_name
-      MODEL_PROVIDER  = var.model_provider
-      INFERENCE_URL   = local.inference_url
+      PROJECT_ID     = var.project_id
+      STORAGE_BUCKET = var.storage_bucket_name
+      MODEL_PROVIDER = var.model_provider
+      INFERENCE_URL  = local.inference_url
     }
   }
 

@@ -2,6 +2,9 @@
 
 Complete guide for deploying **Hire Lens** (Telegram bot + PersonaProbe website + backend + optional inference service) on **GCP + Firebase** using the Terraform stack in `terraform_new/`.
 
+> **Quick start:** See [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md) for a short step-by-step deployment checklist.  
+> **Troubleshooting history:** See [`TERRAFORM_ISSUES_AND_FIXES.md`](./TERRAFORM_ISSUES_AND_FIXES.md) for problems encountered and fixes applied.
+
 ---
 
 ## Table of contents
@@ -234,6 +237,20 @@ Open the **website** URL in your browser, then test the Telegram bot with `/demo
 
 ---
 
+## Google Sign-In setup
+
+Email/password auth is enabled automatically by Terraform. **Google Sign-In must be enabled manually** in the Firebase Console once per GCP project (Firebase creates the OAuth client for you).
+
+If you see `auth/operation-not-allowed` when clicking **Continue with Google**:
+
+1. Open [Firebase Authentication → Sign-in method](https://console.firebase.google.com/project/_/authentication/providers) for your project.
+2. Click **Google** → **Enable**.
+3. Choose a support email → **Save**.
+
+If prompted, complete the OAuth consent screen first. No frontend rebuild or `terraform apply` is needed.
+
+---
+
 ## Model variants (Gemini vs open-source)
 
 Switch variants with a **single variable** in `terraform.tfvars`:
@@ -277,6 +294,7 @@ You do **not** need to manually:
 | Firestore database | `modules/database` |
 | Firestore security rules | `modules/firestore_rules` |
 | Firebase Auth (email/password) | `modules/auth` |
+| Firebase Auth authorized domains | `modules/auth_config` |
 | Secret Manager secrets | `modules/secrets` (JWT auto-generated) |
 | Cloud Run env vars | `modules/services` wires secrets + URLs |
 | Container image builds | `modules/build` via Cloud Build |
@@ -284,6 +302,12 @@ You do **not** need to manually:
 | Frontend Firebase config | Baked into Docker build via substitutions |
 | Bot `APP_URL` | Auto-set to deployed frontend URL |
 | Local env reference files | `local_file` resources |
+
+### One manual step after deploy
+
+| Task | How to do it |
+|------|----------------|
+| Google Sign-In | Enable in [Firebase Console → Authentication → Google](https://console.firebase.google.com/project/_/authentication/providers) (see [Google Sign-In setup](#google-sign-in-setup)) |
 
 ### Secrets stored in Secret Manager
 
@@ -304,8 +328,9 @@ Each teammate needs **~10 minutes** and their **own GCP project**:
 3. `gcloud auth login && gcloud auth application-default login`
 4. `cp terraform.tfvars.example terraform.tfvars` and fill in 2–3 values
 5. `terraform init && terraform apply`
+6. Enable Google Sign-In in Firebase Console (one click — see [Google Sign-In setup](#google-sign-in-setup))
 
-No shared secrets file, no manual Firebase console setup, no copying API keys into Cloud Run by hand.
+No shared secrets file, no copying API keys into Cloud Run by hand.
 
 ---
 
@@ -380,6 +405,14 @@ Re-run apply to rebuild the frontend with fresh Firebase config:
 terraform apply -replace='module.build.null_resource.build_frontend[0]'
 ```
 
+### `auth/operation-not-allowed` on Google Sign-In
+
+Google Sign-In is not enabled yet. Enable it in [Firebase Console → Authentication → Google](https://console.firebase.google.com/project/_/authentication/providers). See [Google Sign-In setup](#google-sign-in-setup).
+
+### `auth/unauthorized-domain`
+
+The Cloud Run frontend URL must be listed in Firebase authorized domains. Re-run `terraform apply` — the `auth_config` module adds it automatically after services deploy.
+
 ### Skip image builds (use placeholders for infra-only testing)
 
 ```hcl
@@ -450,6 +483,8 @@ terraform destroy
 
 ## Support
 
+- **Step-by-step deploy:** [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md)
+- **Issues & fixes log:** [`TERRAFORM_ISSUES_AND_FIXES.md`](./TERRAFORM_ISSUES_AND_FIXES.md)
 - Stack overview: [`README.md`](./README.md)
 - Repository layout: [`../docs/repo-structure.md`](../docs/repo-structure.md)
 - Telegram bot: [`../apps/telegram-bot/README.md`](../apps/telegram-bot/README.md)

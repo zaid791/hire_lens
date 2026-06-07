@@ -19,7 +19,7 @@ resource "google_firebaserules_ruleset" "firestore" {
       name    = "firestore.rules"
       content = file(var.rules_file_path)
     }
-    language = "FIRESTORE_RULES"
+    language = "FIREBASE_RULES"
   }
 }
 

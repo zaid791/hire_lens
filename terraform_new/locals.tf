@@ -2,8 +2,8 @@ locals {
   name_prefix     = lower(replace("${var.project_name}-${var.environment}", "_", "-"))
   resource_suffix = substr(replace(random_string.suffix.result, "_", ""), 0, 6)
 
-  use_gemini      = var.model_provider == "gemini"
-  use_opensource  = var.model_provider == "opensource"
+  use_gemini       = var.model_provider == "gemini"
+  use_opensource   = var.model_provider == "opensource"
   deploy_inference = local.use_opensource
 
   # Networking
@@ -52,6 +52,9 @@ locals {
     managed_by     = "terraform"
     model_provider = var.model_provider
   })
+
+  # Default Firebase Storage bucket (distinct from the app data GCS bucket).
+  firebase_storage_bucket = "${var.project_id}.firebasestorage.app"
 }
 
 resource "random_string" "suffix" {

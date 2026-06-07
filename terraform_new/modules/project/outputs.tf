@@ -13,6 +13,11 @@ output "auth_domain" {
   value       = "${var.project_id}.firebaseapp.com"
 }
 
+output "identity_platform_ready" {
+  description = "Dependency marker: Firebase Auth backend is ready for configuration."
+  value       = time_sleep.wait_for_identity_platform.id
+}
+
 output "hosting_site_id" {
   description = "Firebase Hosting site ID."
   value       = google_firebase_hosting_site.default.site_id

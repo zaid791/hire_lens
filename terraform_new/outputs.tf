@@ -14,7 +14,7 @@ output "firebase_config" {
     apiKey            = module.auth.api_key
     authDomain        = module.project.auth_domain
     projectId         = var.project_id
-    storageBucket     = module.storage.bucket_name
+    storageBucket     = local.firebase_storage_bucket
     messagingSenderId = module.project.project_number
     appId             = module.project.web_app_id
   }
