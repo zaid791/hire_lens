@@ -266,6 +266,7 @@ gcloud run services logs tail run-bot-hirelens-dev --region=europe-west1
 
 ## Related docs
 
-- Detailed team guide: [`README_TEAM.md`](./README_TEAM.md)
+- **Local development:** [`../docs/LOCAL_DEVELOPMENT.md`](../docs/LOCAL_DEVELOPMENT.md)
+- Step-by-step deploy: [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md)
 - Issues and fixes log: [`TERRAFORM_ISSUES_AND_FIXES.md`](./TERRAFORM_ISSUES_AND_FIXES.md)
 - Telegram bot: [`../apps/telegram-bot/README.md`](../apps/telegram-bot/README.md)

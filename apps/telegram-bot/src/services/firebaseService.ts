@@ -35,28 +35,149 @@ export interface QuotaCheckResult {
   remaining: number;
   subscriptionTier: string;
   isMock: boolean;
+  linked: boolean;
 }
 
-const mockDb: Record<string, { subscriptionTier: string; requestsToday: number; lastRequestDate: string; linkedCode?: string }> = {};
-const mockCodes: Record<string, string> = {};
+export interface LinkResult {
+  ok: boolean;
+  error?: string;
+}
 
-export async function generateLinkingCode(chatId: string): Promise<string> {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+export interface LinkedAccount {
+  userId: string;
+  subscriptionTier: string;
+}
 
+const mockLinked: Record<string, string> = {};
+const mockTokens: Record<string, { userId: string; expiresAt: number }> = {};
+const mockUsers: Record<string, {
+  subscriptionTier: string;
+  requestsToday: number;
+  lastRequestDate: string;
+  telegramChatId?: string;
+}> = {};
+
+function isWebsiteUserDocId(docId: string): boolean {
+  return !docId.startsWith('telegram_');
+}
+
+export async function isTelegramLinked(chatId: string): Promise<LinkedAccount | null> {
   if (!db) {
-    mockCodes[code] = chatId;
-    return code;
+    const userId = mockLinked[chatId];
+    if (!userId) return null;
+    const user = mockUsers[userId];
+    return {
+      userId,
+      subscriptionTier: user?.subscriptionTier || 'base',
+    };
   }
 
-  const expiresAt = new Date();
-  expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+  try {
+    const usersSnap = await db.collection('users')
+      .where('telegramChatId', '==', chatId)
+      .limit(1)
+      .get();
 
-  await db.collection('linkingCodes').doc(code).set({
-    telegramChatId: chatId,
-    expiresAt: admin.firestore.Timestamp.fromDate(expiresAt)
-  });
+    if (usersSnap.empty) return null;
 
-  return code;
+    const doc = usersSnap.docs[0];
+    if (!isWebsiteUserDocId(doc.id)) return null;
+
+    const data = doc.data();
+    return {
+      userId: doc.id,
+      subscriptionTier: data?.subscriptionTier || 'base',
+    };
+  } catch (error) {
+    console.error('❌ Failed to check Telegram link status:', error);
+    return null;
+  }
+}
+
+export async function completeTelegramLink(
+  token: string,
+  chatId: string,
+  username?: string
+): Promise<LinkResult> {
+  if (!token) {
+    return { ok: false, error: 'Missing link token.' };
+  }
+
+  if (!db) {
+    const pending = mockTokens[token];
+    if (!pending || pending.expiresAt < Date.now()) {
+      return { ok: false, error: 'This link has expired. Generate a new one from the website.' };
+    }
+
+    mockLinked[chatId] = pending.userId;
+    if (!mockUsers[pending.userId]) {
+      mockUsers[pending.userId] = {
+        subscriptionTier: 'base',
+        requestsToday: 0,
+        lastRequestDate: new Date().toISOString().split('T')[0],
+      };
+    }
+    mockUsers[pending.userId].telegramChatId = chatId;
+    delete mockTokens[token];
+    return { ok: true };
+  }
+
+  try {
+    const tokenRef = db.collection('telegramLinkTokens').doc(token);
+    const tokenSnap = await tokenRef.get();
+
+    if (!tokenSnap.exists) {
+      return { ok: false, error: 'Invalid link token. Open Connect Telegram from your website account.' };
+    }
+
+    const { userId, expiresAt } = tokenSnap.data() as {
+      userId: string;
+      expiresAt: admin.firestore.Timestamp;
+    };
+
+    if (expiresAt.toMillis() < Date.now()) {
+      await tokenRef.delete();
+      return { ok: false, error: 'This link has expired. Generate a new one from the website.' };
+    }
+
+    const existingLink = await db.collection('users')
+      .where('telegramChatId', '==', chatId)
+      .get();
+
+    const linkedWebsiteUser = existingLink.docs.find((doc) => isWebsiteUserDocId(doc.id));
+    if (linkedWebsiteUser && linkedWebsiteUser.id !== userId) {
+      return { ok: false, error: 'This Telegram account is already linked to another website user.' };
+    }
+
+    const userRef = db.collection('users').doc(userId);
+    const legacyRef = db.collection('users').doc(`telegram_${chatId}`);
+
+    await db.runTransaction(async (transaction) => {
+      const legacySnap = await transaction.get(legacyRef);
+      const userSnap = await transaction.get(userRef);
+
+      const legacyData = legacySnap.exists ? legacySnap.data() : undefined;
+      const userData = userSnap.exists ? userSnap.data() : undefined;
+
+      transaction.set(userRef, {
+        telegramChatId: chatId,
+        ...(username ? { telegramUsername: username } : {}),
+        subscriptionTier: userData?.subscriptionTier || legacyData?.subscriptionTier || 'base',
+        requestsToday: userData?.requestsToday ?? legacyData?.requestsToday ?? 0,
+        lastRequestDate: userData?.lastRequestDate || legacyData?.lastRequestDate || new Date().toISOString().split('T')[0],
+      }, { merge: true });
+
+      if (legacySnap.exists) {
+        transaction.delete(legacyRef);
+      }
+
+      transaction.delete(tokenRef);
+    });
+    return { ok: true };
+  } catch (error) {
+    console.error('❌ Failed to complete Telegram link:', error);
+    return { ok: false, error: 'Could not link Telegram. Please try again from the website.' };
+  }
 }
 
 export async function checkAndIncrementRequestLimit(
@@ -64,17 +185,27 @@ export async function checkAndIncrementRequestLimit(
   username?: string
 ): Promise<QuotaCheckResult> {
   const todayStr = new Date().toISOString().split('T')[0];
+  const linked = await isTelegramLinked(chatId);
+
+  if (!linked) {
+    return {
+      allowed: false,
+      requestsToday: 0,
+      limit: 0,
+      remaining: 0,
+      subscriptionTier: 'base',
+      isMock: !db,
+      linked: false,
+    };
+  }
 
   if (!db) {
-    if (!mockDb[chatId]) {
-      mockDb[chatId] = {
-        subscriptionTier: 'base',
-        requestsToday: 0,
-        lastRequestDate: todayStr
-      };
-    }
-
-    const user = mockDb[chatId];
+    const user = mockUsers[linked.userId] ?? {
+      subscriptionTier: linked.subscriptionTier,
+      requestsToday: 0,
+      lastRequestDate: todayStr,
+    };
+    mockUsers[linked.userId] = user;
 
     if (user.lastRequestDate !== todayStr) {
       user.requestsToday = 0;
@@ -91,7 +222,8 @@ export async function checkAndIncrementRequestLimit(
         limit,
         remaining: 0,
         subscriptionTier: tier,
-        isMock: true
+        isMock: true,
+        linked: true,
       };
     }
 
@@ -103,34 +235,24 @@ export async function checkAndIncrementRequestLimit(
       limit,
       remaining: limit - user.requestsToday,
       subscriptionTier: tier,
-      isMock: true
+      isMock: true,
+      linked: true,
     };
   }
 
   try {
-    const usersSnap = await db.collection('users')
-      .where('telegramChatId', '==', chatId)
-      .limit(1)
-      .get();
-
-    let userRef: admin.firestore.DocumentReference;
-
-    if (!usersSnap.empty) {
-      userRef = usersSnap.docs[0].ref;
-    } else {
-      userRef = db.collection('users').doc(`telegram_${chatId}`);
-    }
+    const userRef = db.collection('users').doc(linked.userId);
 
     return await db.runTransaction(async (transaction) => {
       const doc = await transaction.get(userRef);
 
-      let subscriptionTier = 'base';
+      let subscriptionTier = linked.subscriptionTier;
       let requestsToday = 0;
       let lastRequestDate = todayStr;
 
       if (doc.exists) {
         const data = doc.data();
-        subscriptionTier = data?.subscriptionTier || 'base';
+        subscriptionTier = data?.subscriptionTier || subscriptionTier;
         requestsToday = data?.requestsToday || 0;
         lastRequestDate = data?.lastRequestDate || '';
       }
@@ -149,29 +271,19 @@ export async function checkAndIncrementRequestLimit(
           limit,
           remaining: 0,
           subscriptionTier,
-          isMock: false
+          isMock: false,
+          linked: true,
         };
       }
 
       const newCount = requestsToday + 1;
-      const updateData: Record<string, unknown> = {
+      transaction.set(userRef, {
         requestsToday: newCount,
         lastRequestDate: todayStr,
-        subscriptionTier
-      };
-
-      if (!usersSnap.empty) {
-        if (username) {
-          updateData.telegramUsername = username;
-        }
-      } else {
-        updateData.telegramChatId = chatId;
-        if (username) {
-          updateData.telegramUsername = username;
-        }
-      }
-
-      transaction.set(userRef, updateData, { merge: true });
+        subscriptionTier,
+        telegramChatId: chatId,
+        ...(username ? { telegramUsername: username } : {}),
+      }, { merge: true });
 
       return {
         allowed: true,
@@ -179,52 +291,77 @@ export async function checkAndIncrementRequestLimit(
         limit,
         remaining: limit - newCount,
         subscriptionTier,
-        isMock: false
+        isMock: false,
+        linked: true,
       };
     });
   } catch (error) {
-    console.error('❌ Firestore transaction failed, falling back to allowing request:', error);
+    console.error('❌ Firestore transaction failed:', error);
     return {
-      allowed: true,
+      allowed: false,
       requestsToday: 0,
       limit: LIMITS.base,
-      remaining: LIMITS.base,
+      remaining: 0,
       subscriptionTier: 'base',
-      isMock: true
+      isMock: true,
+      linked: true,
     };
   }
 }
 
-export async function getUserProfile(chatId: string): Promise<{ subscriptionTier: string; requestsToday: number; limit: number; remaining: number } | null> {
+export async function getUserProfile(chatId: string): Promise<{
+  subscriptionTier: string;
+  requestsToday: number;
+  limit: number;
+  remaining: number;
+  linked: boolean;
+} | null> {
   const todayStr = new Date().toISOString().split('T')[0];
+  const linked = await isTelegramLinked(chatId);
+
+  if (!linked) {
+    return {
+      subscriptionTier: 'base',
+      requestsToday: 0,
+      limit: 0,
+      remaining: 0,
+      linked: false,
+    };
+  }
 
   if (!db) {
-    const user = mockDb[chatId];
-    if (!user) return null;
+    const user = mockUsers[linked.userId];
+    if (!user) {
+      return {
+        subscriptionTier: linked.subscriptionTier,
+        requestsToday: 0,
+        limit: LIMITS.base,
+        remaining: LIMITS.base,
+        linked: true,
+      };
+    }
     const limit = LIMITS[user.subscriptionTier as keyof typeof LIMITS] || LIMITS.base;
     const currentToday = user.lastRequestDate === todayStr ? user.requestsToday : 0;
     return {
       subscriptionTier: user.subscriptionTier,
       requestsToday: currentToday,
       limit,
-      remaining: Math.max(0, limit - currentToday)
+      remaining: Math.max(0, limit - currentToday),
+      linked: true,
     };
   }
 
   try {
-    const usersSnap = await db.collection('users')
-      .where('telegramChatId', '==', chatId)
-      .limit(1)
-      .get();
-
-    let doc;
-    if (!usersSnap.empty) {
-      doc = usersSnap.docs[0];
-    } else {
-      doc = await db.collection('users').doc(`telegram_${chatId}`).get();
+    const doc = await db.collection('users').doc(linked.userId).get();
+    if (!doc.exists) {
+      return {
+        subscriptionTier: linked.subscriptionTier,
+        requestsToday: 0,
+        limit: LIMITS.base,
+        remaining: LIMITS.base,
+        linked: true,
+      };
     }
-
-    if (!doc.exists) return null;
 
     const data = doc.data();
     const subscriptionTier = data?.subscriptionTier || 'base';
@@ -241,10 +378,16 @@ export async function getUserProfile(chatId: string): Promise<{ subscriptionTier
       subscriptionTier,
       requestsToday,
       limit,
-      remaining: Math.max(0, limit - requestsToday)
+      remaining: Math.max(0, limit - requestsToday),
+      linked: true,
     };
   } catch (error) {
     console.error('❌ Failed to fetch user profile:', error);
     return null;
   }
+}
+
+/** @internal Mock helper for local testing without Firestore */
+export function __mockRegisterLinkToken(token: string, userId: string) {
+  mockTokens[token] = { userId, expiresAt: Date.now() + 15 * 60 * 1000 };
 }

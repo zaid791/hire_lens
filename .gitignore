@@ -26,6 +26,8 @@
 
 # python caches
 __pycache__
+**/.venv/
+**/venv/
 
 # LaTeX build artifacts
 *.aux

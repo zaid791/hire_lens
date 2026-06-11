@@ -145,6 +145,10 @@ resource "google_cloud_run_v2_service" "frontend" {
       ports {
         container_port = 80
       }
+      env {
+        name  = "DEPLOY_STAMP"
+        value = var.frontend_deploy_stamp
+      }
     }
   }
 
@@ -322,6 +326,10 @@ resource "google_cloud_run_v2_service" "bot" {
       env {
         name  = "GOOGLE_CLOUD_REGION"
         value = var.region
+      }
+      env {
+        name  = "DEPLOY_STAMP"
+        value = var.bot_deploy_stamp
       }
       env {
         name = "TELEGRAM_BOT_TOKEN"

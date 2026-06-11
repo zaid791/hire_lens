@@ -90,3 +90,15 @@ variable "telegram_bot_token_secret_id" {
 variable "gemini_api_key_secret_id" {
   type = string
 }
+
+variable "frontend_deploy_stamp" {
+  description = "Changes when the frontend image is rebuilt, forcing a new Cloud Run revision."
+  type        = string
+  default     = ""
+}
+
+variable "bot_deploy_stamp" {
+  description = "Changes when the bot image is rebuilt, forcing a new Cloud Run revision."
+  type        = string
+  default     = ""
+}

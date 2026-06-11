@@ -5,10 +5,14 @@ import { analyzeLanguages } from './utils/analyzeLanguages.js';
 import { analyzeCommitPattern } from './utils/analyzeCommitPattern.js';
 import { analyzeWithGemini } from './services/geminiService.js';
 import { analyzeWithInference } from './services/inferenceService.js';
-import { checkAndIncrementRequestLimit, getUserProfile, generateLinkingCode, LIMITS } from './services/firebaseService.js';
+import {
+  checkAndIncrementRequestLimit,
+  completeTelegramLink,
+  getUserProfile,
+  isTelegramLinked,
+} from './services/firebaseService.js';
 import { FullProfile } from './types/index.js';
 
-// Load environment variables
 dotenv.config();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -62,19 +66,46 @@ const MOCK_PROFILE: FullProfile = {
 
 const WELCOME_MESSAGE = `👋 <b>Welcome to Hire Lens!</b>
 
-I am your Telegram-first HR assistant that analyzes public GitHub profiles to help you quickly understand a candidate's technical background.
+Your Telegram is linked to your website account. You can analyze public GitHub profiles from here or the web dashboard.
 
-🎯 <b>How to use:</b>
-• Send <code>/analyze [github-username]</code>
-• Send a GitHub profile link directly (e.g., <code>https://github.com/octocat</code>)
-• Send just a GitHub username (e.g., <code>octocat</code>)
-• Send <code>/profile</code> to check your subscription quota
-• Send <code>/link</code> to connect your bot with the Web Dashboard
-• Try <code>/demo</code> to see an example report instantly!
+🎯 <b>Commands:</b>
+• <code>/analyze octocat</code> — analyze a GitHub user
+• Send a GitHub username or profile link directly
+• <code>/profile</code> — check your daily quota
+• <code>/demo</code> — example report`;
 
-Let's find the best match for your team! 🚀`;
+function loginUrl(): string {
+  return `${APP_URL.replace(/\/$/, '')}/login`;
+}
 
-// Helper: Extract username from message text or URL
+function appUrl(): string {
+  return `${APP_URL.replace(/\/$/, '')}/app`;
+}
+
+function linkRequiredMessage(): string {
+  return `🔐 <b>Website account required</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+To use Hire Lens on Telegram, create an account on the website and connect Telegram from your dashboard.
+
+<b>Steps:</b>
+1. Sign up or log in at the website
+2. Open your dashboard and click <b>Connect Telegram</b>
+3. Tap <b>Start</b> in the Telegram chat that opens
+
+🌐 <a href="${loginUrl()}">Create account / Log in</a>
+📊 <a href="${appUrl()}">Open dashboard</a>`;
+}
+
+function getStartPayload(text: string): string | undefined {
+  const parts = text.trim().split(/\s+/);
+  if (parts.length < 2) return undefined;
+  return parts.slice(1).join(' ').trim() || undefined;
+}
+
+async function replyLinkRequired(ctx: { replyWithHTML: (text: string) => Promise<unknown> }) {
+  await ctx.replyWithHTML(linkRequiredMessage());
+}
+
 function extractUsername(text: string): string | null {
   const cleanText = text.trim();
   if (!cleanText) return null;
@@ -86,15 +117,13 @@ function extractUsername(text: string): string | null {
       if (parts.length > 0) return parts[0];
     }
   } catch {
-    // Not a valid URL, treat as potential username
+    // Not a URL
   }
 
-  // Handle @username notation
   if (cleanText.startsWith('@')) {
     return cleanText.substring(1);
   }
 
-  // Standard username verification
   const usernameRegex = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
   if (usernameRegex.test(cleanText)) {
     return cleanText;
@@ -103,7 +132,6 @@ function extractUsername(text: string): string | null {
   return null;
 }
 
-// Helper: Format full profile to a beautiful HTML message
 function formatProfileReport(result: FullProfile): string {
   const { profile, languageStats, commitPattern, analysis } = result;
 
@@ -144,35 +172,35 @@ ${languagesText || '• <i>No languages detected</i>'}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 }
 
-// Handler: Run analysis on a username
 async function handleAnalysis(ctx: any, username: string) {
   const chatId = String(ctx.from?.id);
   const userHandle = ctx.from?.username || '';
 
-  // 1. Check & increment rate limit in Firestore
   let quota;
   try {
     quota = await checkAndIncrementRequestLimit(chatId, userHandle);
   } catch (err) {
     console.error('Failed checking request quota:', err);
-    // Allow request as fallback if database completely errors out
-    quota = { allowed: true, remaining: 1, limit: LIMITS.base, subscriptionTier: 'base', isMock: true };
+    await ctx.replyWithHTML('❌ Could not verify your account. Please try again later.');
+    return;
+  }
+
+  if (!quota.linked) {
+    await replyLinkRequired(ctx);
+    return;
   }
 
   if (!quota.allowed) {
     const limitMessage = `⚠️ <b>Daily Quota Reached!</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-You have used all <b>${quota.limit}</b> of your daily analysis requests for today.
+You have used all <b>${quota.limit}</b> of your daily analysis requests.
 
-✨ <b>Get Unlimited Reports:</b>
-Upgrade to our Premium Subscription to unlock unlimited candidate lookups, direct candidate PDF export, and advanced personality breakdowns!
-
-👉 Type <code>/profile</code> to see your current subscription details.`;
+👉 Type <code>/profile</code> for account details.`;
 
     try {
       await ctx.replyWithHTML(limitMessage);
     } catch {
-      console.warn(`Could not send limit warning — user may have blocked the bot.`);
+      console.warn('Could not send limit warning — user may have blocked the bot.');
     }
     return;
   }
@@ -180,21 +208,17 @@ Upgrade to our Premium Subscription to unlock unlimited candidate lookups, direc
   let loadingMsgId: number | null = null;
 
   try {
-    const usageFooter = quota.isMock
-      ? `(Quota: ${quota.limit - quota.remaining}/${quota.limit} used today • Mock Mode)`
-      : `(Quota: ${quota.limit - quota.remaining}/${quota.limit} used today)`;
-
+    const usageFooter = `(Quota: ${quota.limit - quota.remaining}/${quota.limit} used today)`;
     const loadingMsg = await ctx.replyWithHTML(`⏳ Analyzing <b>@${username}</b>... Please wait.\n<i>${usageFooter}</i>`);
     loadingMsgId = loadingMsg.message_id;
   } catch {
-    console.warn(`Could not send loading message to user — they may have blocked the bot.`);
+    console.warn('Could not send loading message — user may have blocked the bot.');
     return;
   }
 
   try {
     if (username === 'demo') {
-      const reportHtml = formatProfileReport(MOCK_PROFILE);
-      await ctx.replyWithHTML(reportHtml, { disable_web_page_preview: true });
+      await ctx.replyWithHTML(formatProfileReport(MOCK_PROFILE), { disable_web_page_preview: true });
       return;
     }
 
@@ -207,40 +231,71 @@ Upgrade to our Premium Subscription to unlock unlimited candidate lookups, direc
     const languageStats = analyzeLanguages(repos);
     const commitPattern = analyzeCommitPattern(events, repos);
     const analysis = await runAnalysis(profile, repos, languageStats, commitPattern);
-
     const reportHtml = formatProfileReport({ profile, repos, languageStats, commitPattern, analysis });
+
     try {
       await ctx.replyWithHTML(reportHtml, { disable_web_page_preview: true });
     } catch {
-      console.warn(`Could not send analysis report — user may have blocked the bot.`);
+      console.warn('Could not send analysis report — user may have blocked the bot.');
     }
   } catch (error) {
     let errMsg = 'An unknown error occurred during analysis.';
     if (error instanceof GitHubNotFoundError) {
       errMsg = `❌ GitHub user <b>@${username}</b> not found. Please verify the spelling.`;
     } else if (error instanceof GitHubRateLimitError) {
-      errMsg = '⚠️ GitHub API rate limit exceeded. Please try again later or check your API configuration.';
+      errMsg = '⚠️ GitHub API rate limit exceeded. Please try again later.';
     } else if (error instanceof Error) {
       errMsg = `❌ Error: ${error.message}`;
     }
     try {
       await ctx.replyWithHTML(errMsg);
     } catch {
-      console.warn(`Could not send error message — user may have blocked the bot.`);
+      console.warn('Could not send error message — user may have blocked the bot.');
     }
   } finally {
     if (loadingMsgId !== null) {
       try {
         await ctx.deleteMessage(loadingMsgId);
       } catch {
-        // Ignored if message was already deleted or doesn't exist
+        // ignored
       }
     }
   }
 }
 
-// Commands
-bot.start((ctx) => ctx.replyWithHTML(WELCOME_MESSAGE));
+bot.start(async (ctx) => {
+  const chatId = String(ctx.from?.id);
+  const text = 'text' in (ctx.message ?? {}) ? ctx.message.text : '';
+  const token = getStartPayload(text);
+
+  if (token) {
+    const result = await completeTelegramLink(token, chatId, ctx.from?.username);
+    if (result.ok) {
+      await ctx.replyWithHTML(`✅ <b>Telegram connected!</b>\n\nYour bot is now linked to your Hire Lens website account.`);
+      await ctx.replyWithHTML(WELCOME_MESSAGE);
+    } else {
+      await ctx.replyWithHTML(`❌ ${result.error}\n\n${linkRequiredMessage()}`);
+    }
+    return;
+  }
+
+  if (!(await isTelegramLinked(chatId))) {
+    await replyLinkRequired(ctx);
+    return;
+  }
+
+  await ctx.replyWithHTML(WELCOME_MESSAGE);
+});
+
+bot.use(async (ctx, next) => {
+  const chatId = String(ctx.from?.id);
+  if (!(await isTelegramLinked(chatId))) {
+    await replyLinkRequired(ctx);
+    return;
+  }
+  return next();
+});
+
 bot.help((ctx) => ctx.replyWithHTML(WELCOME_MESSAGE));
 
 bot.command('demo', async (ctx) => {
@@ -251,47 +306,20 @@ bot.command('profile', async (ctx) => {
   const chatId = String(ctx.from?.id);
   const profile = await getUserProfile(chatId);
 
-  const tier = profile ? profile.subscriptionTier : 'base';
-  const requests = profile ? profile.requestsToday : 0;
-  const limit = profile ? profile.limit : LIMITS.base;
-  const remaining = profile ? profile.remaining : LIMITS.base;
+  if (!profile?.linked) {
+    await replyLinkRequired(ctx);
+    return;
+  }
 
-  const profileMessage = `👤 <b>Your Hire Lens Account Profile</b>
+  const profileMessage = `👤 <b>Your Hire Lens Account</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Account ID: <code>${chatId}</code>
-• Subscription Tier: <b>${tier.toUpperCase()}</b>
+• Subscription: <b>${profile.subscriptionTier.toUpperCase()}</b>
+• Requests today: <b>${profile.requestsToday} / ${profile.limit}</b>
+• Remaining: <b>${profile.remaining}</b>
 
-📊 <b>Daily Usage Status:</b>
-• Requests Used Today: <b>${requests} / ${limit}</b>
-• Requests Remaining: <b>${remaining}</b>
-
-${tier === 'base' ? '✨ Want unlimited searches? Contact support to upgrade your tier to Premium!' : '💎 Thank you for being a Premium member! You have unlimited access.'}`;
+🌐 Manage your account on the <a href="${appUrl()}">website dashboard</a>.`;
 
   await ctx.replyWithHTML(profileMessage);
-});
-
-bot.command('link', async (ctx) => {
-  const chatId = String(ctx.from?.id);
-
-  try {
-    const code = await generateLinkingCode(chatId);
-    const linkUrl = `${APP_URL.replace(/\/$/, '')}?linkCode=${code}`;
-
-    const linkMsg = `🔗 <b>Connect with Web Dashboard</b>
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-Connect your Telegram account to your Hire Lens Web profile to sync your Premium subscription level!
-
-🗝️ One-Time linking code: <code>${code}</code>
-⏳ Valid for 15 minutes.
-
-👉 <b>Click here to link immediately:</b>
-${linkUrl}`;
-
-    await ctx.replyWithHTML(linkMsg);
-  } catch (error) {
-    console.error('Failed to generate link code:', error);
-    await ctx.replyWithHTML('❌ Failed to generate a linking code. Please try again later.');
-  }
 });
 
 bot.command('analyze', async (ctx) => {
@@ -308,19 +336,17 @@ bot.command('analyze', async (ctx) => {
   await handleAnalysis(ctx, username);
 });
 
-// Handle plain text messages (extract username and run analysis)
 bot.on('text', async (ctx) => {
   const text = ctx.message.text.trim();
-  if (text.startsWith('/')) return; // Let command handlers process commands
+  if (text.startsWith('/')) return;
 
   const username = extractUsername(text);
   if (username) {
     await handleAnalysis(ctx, username);
   } else {
-    await ctx.replyWithHTML('🤔 I couldn\'t extract a valid GitHub username from your message. Send a username (e.g. <code>octocat</code>) or profile link.');
+    await ctx.replyWithHTML('🤔 Send a GitHub username (e.g. <code>octocat</code>) or profile link, or use <code>/analyze username</code>.');
   }
 });
-
 
 import http from 'http';
 import { GoogleAuth } from 'google-auth-library';

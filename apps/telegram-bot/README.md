@@ -1,26 +1,37 @@
 # Telegram Bot
 
-This folder will contain the Telegram-first user interface for Hire Lens.
+Telegram interface for Hire Lens. Requires a linked website account before any commands work.
 
 ## Purpose
 
-- Receive Telegram webhook updates
-- Handle onboarding and commands
-- Trigger profile analysis and job matching requests
-- Present results back to HR users
+- Receive Telegram webhook updates (Cloud Run) or long-polling (local dev)
+- Analyze GitHub profiles for linked website users
+- Share quota and subscription tier with the web dashboard
 
-## Boundaries
+## Account linking
 
-- No infrastructure code here
-- No model hosting code here
-- Shared request and response types should live in `packages/shared`
-- Set `APP_URL` in `.env` so the `/link` command points at your local dashboard during development and at the deployed frontend in production
+Users must:
 
-## Suggested ownership
+1. Create an account on the website (`/login`)
+2. Click **Connect Telegram** on the dashboard (`/app`)
+3. Tap **Start** in the Telegram chat opened by the link
 
-- Bot flows, UX, and Telegram integration
+The bot does not accept `/link` codes or standalone Telegram-only accounts.
+
+## Local development
+
+```bash
+cp .env.example .env
+# Set TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, APP_URL=http://localhost:3000
+gcloud auth application-default login
+npm install && npm run dev
+```
+
+Set `APP_URL` to your local frontend URL so link instructions point to the correct dashboard.
+
+On the website, set `VITE_TELEGRAM_BOT_USERNAME` in `.env.local` (your bot @username without `@`).
 
 ## Notes
 
-- Keep this service focused on chat interaction only
-- Put reusable contracts in the shared package instead of copying DTOs
+- Shared types should live in `packages/shared` when extracted
+- Firestore access uses Firebase Admin SDK + Application Default Credentials

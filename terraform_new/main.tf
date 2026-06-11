@@ -101,6 +101,7 @@ module "build" {
   firebase_app_id              = module.project.web_app_id
   gemini_api_key               = var.gemini_api_key
   inference_url                = ""
+  telegram_bot_username        = var.telegram_bot_username
 
   depends_on = [
     module.project,
@@ -135,6 +136,8 @@ module "services" {
   bot_min_instances            = var.bot_min_instances
   telegram_bot_token_secret_id = module.secrets.telegram_bot_token_secret_id
   gemini_api_key_secret_id     = module.secrets.gemini_api_key_secret_id
+  frontend_deploy_stamp        = coalesce(module.build.frontend_build_id, "")
+  bot_deploy_stamp             = coalesce(module.build.bot_build_id, "")
 
   depends_on = [
     module.project,
@@ -165,6 +168,7 @@ module "build_post" {
   firebase_messaging_sender_id = module.project.project_number
   firebase_app_id              = module.project.web_app_id
   gemini_api_key               = var.gemini_api_key
+  telegram_bot_username        = var.telegram_bot_username
 
   depends_on = [module.services]
 }
@@ -195,6 +199,7 @@ resource "local_file" "frontend_env" {
     inference_url                = module.services.inference_url
     frontend_url                 = module.services.frontend_url
     backend_url                  = module.services.backend_url
+    telegram_bot_username        = var.telegram_bot_username
   })
 }
 

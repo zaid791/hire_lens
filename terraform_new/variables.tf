@@ -66,6 +66,12 @@ variable "telegram_bot_token" {
   sensitive   = true
 }
 
+variable "telegram_bot_username" {
+  description = "Telegram bot @username without @ (used by the website Connect Telegram flow)."
+  type        = string
+  default     = ""
+}
+
 variable "gemini_api_key" {
   description = "Google Gemini API key. Required when model_provider = \"gemini\". Stored in Secret Manager."
   type        = string

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
+import { TelegramConnect } from './TelegramConnect';
 
 interface SearchPageProps {
   onSearch: (username: string) => void;
   isLoading: boolean;
-  disabled?: boolean;
+  telegramLinked?: boolean;
+  onRefreshTelegram?: () => void;
 }
 
-export function SearchPage({ onSearch, isLoading, disabled }: SearchPageProps) {
+export function SearchPage({ onSearch, isLoading, telegramLinked = false, onRefreshTelegram }: SearchPageProps) {
   const [username, setUsername] = useState("");
 
   const handleSubmit = () => {
@@ -34,9 +36,11 @@ export function SearchPage({ onSearch, isLoading, disabled }: SearchPageProps) {
               PersonaProbe 🕵️
             </h1>
             <p className="font-body text-lg md:text-xl text-[#ccc3d8] font-light tracking-wide">
-              AI-powered GitHub Developer Intelligence
+              AI-powered GitHub developer intelligence
             </p>
           </div>
+
+          <TelegramConnect linked={telegramLinked} onRefresh={onRefreshTelegram} />
 
           {/* Search input cluster */}
           <div className="relative group">
@@ -52,12 +56,12 @@ export function SearchPage({ onSearch, isLoading, disabled }: SearchPageProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !isLoading && handleSubmit()}
-                disabled={isLoading || disabled}
+                disabled={isLoading}
               />
               <button
                 className="gradient-primary text-[#3f008e] font-headline font-bold px-8 py-4 rounded-xl flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg disabled:opacity-50"
                 onClick={handleSubmit}
-                disabled={isLoading || disabled}
+                disabled={isLoading}
               >
                 {isLoading ? "Analyzing..." : "Analyze"}
                 {!isLoading && <span className="material-symbols-outlined text-sm">arrow_forward</span>}
@@ -74,7 +78,7 @@ export function SearchPage({ onSearch, isLoading, disabled }: SearchPageProps) {
                   key={name}
                   className="font-mono text-xs tracking-[0.05em] uppercase text-[#ccc3d8] hover:text-[#d2bbff] border-b border-transparent hover:border-[#d2bbff] transition-all duration-200 pb-0.5"
                   onClick={() => { setUsername(name); onSearch(name); }}
-                  disabled={isLoading || disabled}
+                  disabled={isLoading}
                 >
                   {name}
                 </button>

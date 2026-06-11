@@ -12,3 +12,5 @@ VITE_MODEL_PROVIDER=${model_provider}
 VITE_INFERENCE_URL=${inference_url}
 VITE_APP_URL=${frontend_url}
 VITE_BACKEND_URL=${backend_url}
+# Telegram bot @username from BotFather (without @)
+VITE_TELEGRAM_BOT_USERNAME=${telegram_bot_username}

@@ -2,6 +2,7 @@
 
 project_id         = "your-gcp-project-id"
 telegram_bot_token = "123456789:ABC-your-telegram-bot-token"
+telegram_bot_username = "your_bot_username"
 
 # ── Model variant ────────────────────────────────────────────────────────────
 # "gemini"      → uses Google Gemini API (requires gemini_api_key below)
