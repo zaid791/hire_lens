@@ -11,7 +11,9 @@ import { SearchPage } from './components/SearchPage';
 import { ResultsPage } from './components/ResultsPage';
 import { HomePage } from './components/HomePage';
 import { LoginPage } from './components/LoginPage';
+import { AdminPage } from './components/AdminPage';
 import { usePathname } from './hooks/usePathname';
+import { checkIsAdmin } from './services/adminService';
 
 const MOCK_PROFILE: FullProfile = {
   profile: {
@@ -42,12 +44,16 @@ const MOCK_PROFILE: FullProfile = {
 
 const APP_PATH = '/app';
 const LOGIN_PATH = '/login';
+const ADMIN_PATH = '/admin';
+const PROTECTED_PATHS = [APP_PATH, ADMIN_PATH];
 
 export default function App() {
   const { pathname, navigate } = usePathname();
   const [authReady, setAuthReady] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminReady, setAdminReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FullProfile | null>(null);
@@ -55,53 +61,73 @@ export default function App() {
   const refreshUserProfile = useCallback(async (user: User) => {
     const userDocRef = doc(db, 'users', user.uid);
     const docSnap = await getDoc(userDocRef);
+    const profileFields = {
+      ...(user.email ? { email: user.email } : {}),
+    };
+
     if (docSnap.exists()) {
-      setUserProfile(docSnap.data());
+      if (user.email && docSnap.data()?.email !== user.email) {
+        await setDoc(userDocRef, profileFields, { merge: true });
+      }
+      setUserProfile({ ...docSnap.data(), ...profileFields });
     } else {
-      await setDoc(userDocRef, { subscriptionTier: 'base' });
-      setUserProfile({ subscriptionTier: 'base' });
+      await setDoc(userDocRef, { subscriptionTier: 'base', ...profileFields });
+      setUserProfile({ subscriptionTier: 'base', ...profileFields });
     }
   }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      setAdminReady(false);
       if (user) {
         try {
           await refreshUserProfile(user);
+          setIsAdmin(await checkIsAdmin(user.uid));
         } catch {
           setUserProfile({ subscriptionTier: 'base' });
+          setIsAdmin(false);
         }
       } else {
         setUserProfile(null);
+        setIsAdmin(false);
       }
+      setAdminReady(true);
       setAuthReady(true);
     });
 
     return () => unsubscribe();
   }, [refreshUserProfile]);
 
-  // Route guards: login required for /app, redirect after auth
+  // Route guards: login required for /app and /admin
   useEffect(() => {
-    if (!authReady) return;
+    if (!authReady || !adminReady) return;
 
     const search = window.location.search;
 
     if (currentUser) {
+      if (pathname === ADMIN_PATH && !isAdmin) {
+        navigate(`${APP_PATH}${search}`);
+        return;
+      }
+
       if (pathname === LOGIN_PATH || pathname === '/') {
         navigate(`${APP_PATH}${search}`);
       }
       return;
     }
 
-    if (pathname === APP_PATH) {
+    if (PROTECTED_PATHS.includes(pathname)) {
       navigate(`${LOGIN_PATH}${search}`);
     }
-  }, [authReady, currentUser, pathname, navigate]);
+  }, [authReady, adminReady, currentUser, isAdmin, pathname, navigate]);
 
   const pendingRedirect =
     authReady &&
-    ((currentUser && pathname !== APP_PATH) || (!currentUser && pathname === APP_PATH));
+    adminReady &&
+    ((currentUser && (pathname === LOGIN_PATH || pathname === '/')) ||
+      (currentUser && pathname === ADMIN_PATH && !isAdmin) ||
+      (!currentUser && PROTECTED_PATHS.includes(pathname)));
 
   useEffect(() => {
     if (!currentUser) return;
@@ -166,8 +192,9 @@ export default function App() {
   }
 
   const showApp = currentUser && pathname === APP_PATH;
+  const showAdmin = currentUser && isAdmin && pathname === ADMIN_PATH;
 
-  if (!showApp) {
+  if (!showApp && !showAdmin) {
     if (pathname === LOGIN_PATH) {
       return (
         <LoginPage
@@ -178,6 +205,29 @@ export default function App() {
     }
 
     return <HomePage onSignIn={() => navigate(LOGIN_PATH)} />;
+  }
+
+  if (showAdmin) {
+    return (
+      <>
+        <div className="fixed top-4 right-4 z-[9999] flex items-center gap-3">
+          <div className="flex items-center gap-3 bg-[#070e1d]/80 border border-[#2e3545] rounded-xl px-4 py-2 text-xs font-mono text-[#ccc3d8]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse" />
+              Admin · {currentUser.email}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="text-white hover:text-red-400 font-bold ml-2 pl-2 border-l border-[#2e3545]"
+            >
+              Log Out
+            </button>
+          </div>
+        </div>
+
+        <AdminPage onBack={() => navigate(APP_PATH)} />
+      </>
+    );
   }
 
   return (
@@ -191,6 +241,14 @@ export default function App() {
           <span className="bg-[#7c3aed]/20 text-[#d2bbff] border border-[#7c3aed]/50 px-2 py-0.5 rounded uppercase font-bold text-[10px]">
             {userProfile?.subscriptionTier || 'BASE'}
           </span>
+          {isAdmin && (
+            <button
+              onClick={() => navigate(ADMIN_PATH)}
+              className="text-[#d2bbff] hover:text-white font-bold"
+            >
+              Admin
+            </button>
+          )}
           <button
             onClick={handleLogout}
             className="text-white hover:text-red-400 font-bold ml-2 pl-2 border-l border-[#2e3545]"
