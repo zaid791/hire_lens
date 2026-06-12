@@ -1,23 +1,26 @@
-# Web Dashboard
+# Web Dashboard (placeholder)
 
-This folder will contain the optional admin or analytics frontend for Hire Lens.
+This folder was reserved for a standalone admin frontend.
 
-## Purpose
+## Current status
 
-- Show usage analytics
-- Manage moderation or review tasks
-- Provide an internal admin view if the team decides to ship one
+**Admin functionality is implemented inside PersonaProbe** at the protected `/admin` route:
 
-## Boundaries
+- Lists all website users from Firestore
+- Shows subscription tier (base / premium)
+- Shows daily quota used and remaining
+- Shows Telegram link status
 
-- This is optional and should stay separate from the Telegram bot
-- Do not place backend or Terraform code here
+Access is granted via a Firestore document at `admins/{firebase-uid}`.
+
+## Why it lives in PersonaProbe
+
+Keeping admin inside the existing Cloud Run frontend avoids a separate deployment, extra Terraform resources, and additional hosting configuration for submission.
+
+## If you extend this folder later
+
+- Keep it separate from the Telegram bot
 - Share API contracts through `packages/shared`
+- Do not duplicate Firestore access patterns without updating security rules
 
-## Suggested ownership
-
-- Frontend UI and presentation layer
-
-## Notes
-
-- Keep this app lightweight and optional until the main bot flow is stable
+See [persona_probe/README.md](../persona_probe/README.md) for the live admin implementation.

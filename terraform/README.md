@@ -1,8 +1,21 @@
-# Terraform Setup
+# Terraform (Azure scaffold — superseded)
 
-This directory contains the Terraform scaffold for the Hire Lens Azure deployment.
+> **Note for evaluators:** This folder contains an **early Azure-based infrastructure scaffold** from the initial project planning phase. The **active, deployed stack** uses **Google Cloud Platform + Firebase** and lives in [`../terraform_new/`](../terraform_new/).
 
-## What this first setup covers
+---
+
+## Why two Terraform folders exist
+
+| Folder | Cloud | Status |
+|--------|-------|--------|
+| `terraform/` | Azure (Functions, Cosmos DB, Container Apps) | Planning scaffold — not used for final deployment |
+| `terraform_new/` | GCP (Cloud Run, Firebase, Secret Manager) | **Active — use this for submission demo** |
+
+The team migrated to GCP + Firebase for managed auth, Firestore, and Cloud Run simplicity.
+
+---
+
+## What this Azure scaffold covers
 
 - Resource group
 - Storage account and blob container
@@ -10,49 +23,24 @@ This directory contains the Terraform scaffold for the Hire Lens Azure deploymen
 - Service Bus namespace and queue
 - Application Insights
 - Azure Functions app skeleton
-- Azure Container Apps environment and inference app skeleton
+- Azure Container Apps environment skeleton
 
-## Prerequisites
+---
 
-- Terraform installed
-- Azure CLI installed
-- An Azure subscription you can deploy into
+## If you need to inspect this scaffold
 
-## Step by Step
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars   # if present
+az login
+terraform init
+terraform plan
+```
 
-1. Sign in to Azure:
+Do **not** confuse this with the live Hire Lens deployment.
 
-   ```bash
-   az login
-   az account set --subscription "<your-subscription-id-or-name>"
-   ```
+---
 
-2. Review the editable values in `terraform.tfvars.example`.
+## Deploy the actual project
 
-3. Copy it to `terraform.tfvars` and fill in the values you want to use.
-
-4. Initialize Terraform:
-
-   ```bash
-   terraform init
-   ```
-
-5. Format and inspect the plan:
-
-   ```bash
-   terraform fmt -recursive
-   terraform plan -var-file=terraform.tfvars
-   ```
-
-6. Apply the infrastructure:
-
-   ```bash
-   terraform apply -var-file=terraform.tfvars
-   ```
-
-## Suggested rollout order
-
-1. Create the resource group, storage, database, messaging, and monitoring first.
-2. Add the Functions app after you have the backend code ready.
-3. Add the Container Apps inference service when the model API contract is stable.
-4. Add auth and any optional dashboard resources after the core path works.
+See [../terraform_new/DEPLOYMENT_GUIDE.md](../terraform_new/DEPLOYMENT_GUIDE.md).

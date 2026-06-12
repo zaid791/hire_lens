@@ -2,7 +2,8 @@
 
 Complete guide for deploying **Hire Lens** (Telegram bot + PersonaProbe website + backend + optional inference service) on **GCP + Firebase** using the Terraform stack in `terraform_new/`.
 
-> **Quick start:** See [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md) for a short step-by-step deployment checklist.  
+> **For evaluators / quick deploy:** Start with [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md) — a shorter step-by-step checklist.  
+> **Project overview:** See the [root README](../README.md) for architecture, team, and feature summary.  
 > **Troubleshooting history:** See [`TERRAFORM_ISSUES_AND_FIXES.md`](./TERRAFORM_ISSUES_AND_FIXES.md) for problems encountered and fixes applied.
 
 ---
@@ -56,7 +57,7 @@ Complete guide for deploying **Hire Lens** (Telegram bot + PersonaProbe website 
 | Component | GCP service | Notes |
 |-----------|-------------|-------|
 | Website (`apps/persona_probe`) | Cloud Run | Firebase config baked in at build time |
-| Telegram bot | Cloud Run | Long-polling; `min_instances = 1` |
+| Telegram bot | Cloud Run | Webhook mode (`/telegram/webhook`); `min_instances = 1` recommended |
 | Backend API | Cloud Run | Public; secrets from Secret Manager |
 | Inference (optional) | Cloud Run | Internal-only when `model_provider = opensource` |
 | Auth & database | Firebase Auth + Firestore | Fully provisioned |
@@ -384,7 +385,8 @@ Ensure you ran `gcloud auth application-default login` and your account has **Ed
 
 ### Bot not responding on Telegram
 
-- Confirm `bot_min_instances = 1` (long-polling requires a running instance)
+- Confirm `bot_min_instances = 1` (keeps webhook handler warm)
+- If bot health page works but Telegram is silent, re-register the webhook — see [LOCAL_DEVELOPMENT.md](../docs/LOCAL_DEVELOPMENT.md#switching-back-to-cloud-bot)
 - Check logs:
   ```bash
   gcloud run services logs read run-bot-hirelens-dev --region=europe-west1 --limit=50

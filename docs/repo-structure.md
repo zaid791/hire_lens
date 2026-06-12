@@ -7,7 +7,8 @@ This repository is organized as a monorepo with clear boundaries between product
 - `apps/`: user-facing applications
 - `services/`: backend and internal services
 - `packages/`: shared code used by more than one codebase
-- `terraform/`: infrastructure as code
+- `terraform_new/`: active GCP/Firebase infrastructure as code
+- `terraform/`: superseded Azure scaffold (planning only)
 - `docs/`: developer-facing documentation
 - `diagrams/`: architecture and flow diagrams
 - `plan/` and `presentation/`: course deliverables
@@ -18,9 +19,13 @@ This repository is organized as a monorepo with clear boundaries between product
 
 The main product interface. This should contain the Telegram webhook handler, chat commands, onboarding flow, and user-facing bot logic.
 
+### `apps/persona_probe`
+
+Web dashboard: GitHub search, Firebase auth, Telegram linking, and admin panel (`/admin`). Deployed to Cloud Run.
+
 ### `apps/web-dashboard`
 
-Optional admin or analytics frontend. Keep this separate from the Telegram bot so it can be built or skipped independently.
+Placeholder folder. Admin UI is implemented inside PersonaProbe at `/admin`.
 
 ### `services/backend`
 
@@ -38,7 +43,7 @@ Common contracts and helpers used by the other codebases. Keep this stable and s
 
 - Put deployable code in the right folder from the start.
 - Do not copy the same DTOs or validation logic between apps.
-- Keep infrastructure code in `terraform/` only.
+- Keep infrastructure code in `terraform_new/` only.
 - Keep documentation updated when ownership or boundaries change.
 - If a folder is optional, say so clearly in its README.
 

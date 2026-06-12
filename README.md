@@ -1,199 +1,179 @@
-# Hire Lens Execution Guide
+# Hire Lens
 
-This document gives a concise execution guide for Hire Lens, the cloud computing project.
+**Cloud Computing Project — Telegram-first HR assistant for GitHub developer intelligence**
 
-## Repository Structure
+Hire Lens helps recruiters and hiring teams quickly understand a candidate’s public GitHub presence. Users sign in on the web, connect Telegram, and run AI-powered profile analyses from either the **PersonaProbe dashboard** or the **Telegram bot**. Usage quotas, subscription tiers, and Telegram linking are stored in **Firebase Firestore** and enforced consistently across channels.
 
-The code is organized as a monorepo with separate folders for apps, services, shared code, infrastructure, and documentation. Start with [docs/repo-structure.md](docs/repo-structure.md) for the team-facing layout and ownership rules.
+---
 
-## Project Idea
+## Team
 
-Hire Lens is a Telegram-first HR assistant that analyzes public GitHub profiles and compares them with job descriptions. The system should help recruiters quickly understand whether a candidate matches a role.
+| Name | Role |
+|------|------|
+| Mohammed Zaid Shaikh | Telegram bot, web app, Firebase integration |
+| Piotr Bartosiewicz | Analysis pipeline, backend services |
+| Krzysztof Krawiec | Terraform, GCP deployment, infrastructure |
 
-Instead of relying on paid external AI APIs, we plan to host an open-source model such as Qwen ourselves and use it for summarization and candidate matching. This keeps the data flow inside our system and avoids API-key dependence.
+---
 
-The easiest Azure setup for beginners is:
+## Features (implemented)
 
-- Azure Functions for the Telegram webhook, OAuth callbacks, and API endpoints
-- Azure Container Apps for the self-hosted model inference service
-- Azure Static Web Apps for a tiny admin dashboard if we need one
-- Azure Cosmos DB, Blob Storage, and Service Bus for data, files, and background jobs
+- **PersonaProbe web app** — search a GitHub username and get language stats, commit patterns, and Gemini-generated persona insights
+- **Firebase Authentication** — email/password and Google sign-in
+- **Telegram bot** — `/analyze`, `/demo`, `/profile`; shares daily quota with the website
+- **Account linking** — website users connect Telegram via a secure one-time token flow
+- **Quota & tiers** — base (4 requests/day) and premium (100 requests/day), tracked in Firestore
+- **Admin panel** — protected `/admin` route for listing users, tiers, remaining quota, and Telegram link status
+- **Infrastructure as Code** — full GCP + Firebase stack provisioned with Terraform (`terraform_new/`)
 
-This keeps the app serverless where possible and avoids AKS or full VM management for most of the system.
+---
 
-The first version should focus on:
+## Architecture
 
-- Telegram bot as the main user interface
-- OAuth login with Google/Facebook only, so no passwords are stored
-- Server-side sessions or short-lived tokens
-- GitHub profile analysis based on public data
-- Job description comparison
-- Access limits for users
-- Terraform-based cloud deployment
-- Stripe payments only in later versions
+```
+┌─────────────────────┐     ┌─────────────────────┐
+│  PersonaProbe       │     │  Telegram Bot       │
+│  (Cloud Run)        │     │  (Cloud Run)        │
+│  /app  /admin       │     │  webhook mode       │
+└──────────┬──────────┘     └──────────┬──────────┘
+           │                           │
+           └─────────────┬─────────────┘
+                         │
+              ┌──────────▼──────────┐
+              │ Firebase Auth +     │
+              │ Firestore           │
+              └──────────┬──────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+┌───────▼──────┐  ┌──────▼──────┐  ┌──────▼───────┐
+│ Secret Mgr   │  │ GCS + Pub/Sub│  │ FastAPI      │
+│ (API keys)   │  │ + Function   │  │ Backend      │
+└──────────────┘  └──────────────┘  └──────────────┘
+                         │
+              ┌──────────▼──────────┐
+              │ Gemini API          │  model_provider = "gemini" (default)
+              │ or Cloud Run        │  model_provider = "opensource"
+              │ inference service   │
+              └─────────────────────┘
+```
 
-## How To Execute The Plan
+| Component | Technology | Location in repo |
+|-----------|------------|------------------|
+| Website | React 19, Vite, Tailwind | `apps/persona_probe/` |
+| Telegram bot | Node.js, Telegraf | `apps/telegram-bot/` |
+| Backend API | FastAPI (Python) | `services/backend/` |
+| Inference (optional) | Python | `services/model-inference/` |
+| Infrastructure | Terraform | `terraform_new/` |
+| Firestore rules | Firebase Rules | `firestore.rules` |
 
-### 1. Align the team on the scope
+---
 
-Decide that the bot is the main product and that the first release should be simple and reliable. Do not try to build every feature at once.
+## Repository structure
 
-### 2. Finalize the MVP
+```
+hire_lens/
+├── apps/
+│   ├── persona_probe/      # Main web dashboard (search, auth, admin)
+│   └── telegram-bot/       # Telegram interface
+├── services/
+│   ├── backend/            # FastAPI health & orchestration API
+│   └── model-inference/    # Optional self-hosted model (opensource variant)
+├── terraform_new/          # Active GCP/Firebase deployment (use this)
+├── docs/                   # Developer guides
+├── diagrams/               # Architecture diagrams
+├── plan/                   # Written project plan (LaTeX)
+└── presentation/           # Slide deck (LaTeX)
+```
 
-Implement only these core flows first:
+See [docs/repo-structure.md](docs/repo-structure.md) for folder ownership rules.
 
-- Google/Facebook sign-in
-- Telegram bot registration and session creation
-- GitHub profile analysis from username or profile URL
-- Job description comparison
-- Saving and retrieving analysis reports
+---
 
-### 3. Choose the Azure services
+## Quick start for evaluators
 
-Use managed Azure services so the project stays beginner-friendly:
+### 1. Live deployment
 
-- Azure Functions for backend logic, Telegram webhook handling, and OAuth callbacks
-- Azure Container Apps for the self-hosted model service
-- Azure Static Web Apps for any small admin dashboard
-- Azure Cosmos DB for application data
-- Azure Blob Storage for exported reports and cached files
-- Azure Service Bus for background jobs and notifications
-- Application Insights and Azure Monitor for logging and alerts
+After Terraform apply, get service URLs:
 
-### 4. Define the data model
+```bash
+cd terraform_new
+terraform output deployment_summary
+```
 
-Create tables or documents for:
+| Test | Expected result |
+|------|-----------------|
+| Open frontend URL | PersonaProbe landing page loads |
+| Sign up / log in | Firebase auth works |
+| Search `demo` | Instant mock analysis report |
+| Connect Telegram | Opens bot with link token; tap **Start** |
+| Message bot `/demo` | Analysis report in Telegram (linked account) |
+| Open `/admin` | Admin table (admin Firebase UID required) |
 
-- Users
-- Sessions
-- Candidate profiles
-- Analysis reports
-- Job descriptions
-- Usage limits
-- Payment or subscription status
+Full deployment steps: [terraform_new/DEPLOYMENT_GUIDE.md](terraform_new/DEPLOYMENT_GUIDE.md)
 
-### 5. Build the Telegram bot
+### 2. Local development
 
-Implement bot commands step by step:
+```bash
+# Pull config from your deployed GCP project
+chmod +x scripts/setup-local-from-cloud.sh
+./scripts/setup-local-from-cloud.sh
 
-- `/start` for onboarding
-- `/login` for OAuth sign-in
-- `/analyze` for GitHub profile analysis
-- `/compare` for job description matching
-- `/report` to retrieve a saved analysis
-- `/usage` to show user limits
+# Terminal 1 — frontend
+cd apps/persona_probe && npm install && npm run dev
 
-### 6. Add the analysis pipeline
+# Terminal 2 — bot (requires ADC for Firestore)
+cd apps/telegram-bot && npm install && npm run dev
 
-Use a simple pipeline first:
+# Terminal 3 — backend (optional)
+cd services/backend && pip install -r requirements.txt && uvicorn backend:app --reload
+```
 
-- Collect public GitHub data
-- Extract useful signals such as repositories, languages, activity, and contribution style
-- Generate a structured summary
-- Compare the summary with the job description
-- Return the result to Telegram
+Details: [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md)
 
-If you later add AI, keep a deterministic fallback version so the system still works without the model. A good practical path is:
+---
 
-- start with rules-based scoring
-- add the self-hosted model as a separate inference service
-- keep the rules-based path as fallback whenever the model is slow or unavailable
+## Configuration
 
-If you want to use a model like Qwen, host it on a GPU-capable Azure resource behind an internal API so the Telegram bot never talks to it directly.
+| Variable / secret | Purpose |
+|-------------------|---------|
+| `telegram_bot_token` | Bot API token (Secret Manager in cloud) |
+| `gemini_api_key` | Gemini analysis (when `model_provider = gemini`) |
+| `VITE_FIREBASE_*` | Frontend Firebase SDK config |
+| `VITE_TELEGRAM_BOT_USERNAME` | Website “Connect Telegram” deep link |
+| Firestore `admins/{uid}` | Grants access to `/admin` panel |
 
-### 7. Add access control
+Never commit `terraform.tfvars`, `.env`, or `.env.local` with real secrets.
 
-Limit usage by:
+---
 
-- number of analyses per day
-- number of job comparisons per week
-- free vs premium tier
+## Course deliverables
 
-### 8. Prepare Terraform
+| Deliverable | Path |
+|-------------|------|
+| Project plan | `plan/project_plan.tex` |
+| Presentation | `presentation/presentation.tex` |
+| Architecture diagrams | `diagrams/` |
+| Deployment guide | `terraform_new/DEPLOYMENT_GUIDE.md` |
+| Infrastructure issues log | `terraform_new/TERRAFORM_ISSUES_AND_FIXES.md` |
 
-Write Terraform modules for:
+---
 
-- resource group
-- storage
-- functions
-- messaging
-- monitoring
-- model hosting or inference service on Azure Container Apps
-- optional auth resources
+## Documentation index
 
-Keep everything in `dev` first, then clone the setup into `prod` later.
+| Document | Description |
+|----------|-------------|
+| [apps/persona_probe/README.md](apps/persona_probe/README.md) | Web app setup and features |
+| [apps/telegram-bot/README.md](apps/telegram-bot/README.md) | Bot commands and linking flow |
+| [terraform_new/README.md](terraform_new/README.md) | Terraform overview |
+| [terraform_new/DEPLOYMENT_GUIDE.md](terraform_new/DEPLOYMENT_GUIDE.md) | Step-by-step cloud deploy |
+| [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) | Run all services locally |
+| [docs/repo-structure.md](docs/repo-structure.md) | Monorepo layout and boundaries |
 
-### 9. Test the system locally
+---
 
-Before deployment, test:
+## Notes
 
-- bot command handling
-- login/session flow
-- profile analysis logic
-- report generation
-- rate limiting
-- error handling
-
-### 10. Deploy in small steps
-
-Do not deploy everything at once.
-
-1. Provision the Azure resources with Terraform
-2. Deploy the backend functions
-3. Connect the Telegram bot webhook
-4. Connect the storage layer
-5. Enable monitoring and alerts
-6. Run a demo with a few sample GitHub profiles
-
-### 11. Keep the presentation in sync
-
-The slide deck in `presentation/` should match the same architecture and milestone plan.
-
-## Team Split
-
-- Mohammed Zaid Shaikh: Telegram bot flow and user experience
-- Piotr Bartosiewicz: analysis logic and backend APIs
-- Krzysztof Krawiec: Terraform, deployment, and monitoring
-
-## Beginner Notes
-
-- Keep the first version simple.
-- Prefer managed cloud services over self-hosted infrastructure.
-- Use small reusable modules.
-- Add features only after the bot works end to end.
-- Document every command and deployment step.
-
-## Practical Next Step
-
-Start by writing the Telegram bot command handlers and the OAuth login flow, then connect them to a minimal Azure backend.
-
-After that, add the internal model service on Azure Container Apps and test it on a small set of GitHub profiles before turning on the more advanced matching logic.
-
-## Local Setup
-
-### PersonaProbe web app
-
-1. Install Node.js 18 or newer.
-2. Open a terminal in `apps/persona_probe` and run `npm install`.
-3. Copy `apps/persona_probe/.env.example` to `apps/persona_probe/.env.local` and fill in the Firebase and Gemini values.
-4. In Firebase Console, enable Email/Password, Google, and GitHub sign-in for the project.
-5. Run `npm run dev` from `apps/persona_probe` and open the Vite URL in your browser.
-
-Required app variables:
-
-- `GEMINI_API_KEY`
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
-
-### Telegram bot
-
-1. Open a terminal in `apps/telegram-bot` and run `npm install`.
-2. Copy `apps/telegram-bot/.env.example` to `apps/telegram-bot/.env` and fill in the bot token and Gemini key.
-3. Add the Firebase service-account JSON locally if you need the bot to talk to Firestore.
-4. Run `npm run dev` from `apps/telegram-bot`.
-
-The service-account file should stay out of Git and only live on each developer’s machine.
+- **Active infrastructure:** use `terraform_new/` (GCP + Firebase). The `terraform/` folder contains an earlier Azure scaffold and is not used for the current deployment.
+- **Admin access:** create a Firestore document at `admins/{your-firebase-uid}` and deploy updated rules (`terraform apply -target=module.firestore_rules`).
+- **Cloud bot webhook:** if the Telegram bot stops responding after local dev, re-register the webhook — see [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md#switching-back-to-cloud-bot).
