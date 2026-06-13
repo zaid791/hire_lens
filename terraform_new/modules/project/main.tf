@@ -1,0 +1,79 @@
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = ">= 5.0"
+    }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = ">= 5.0"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = ">= 0.11"
+    }
+  }
+}
+
+locals {
+  services = [
+    "serviceusage.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "iam.googleapis.com",
+    "compute.googleapis.com",
+    "firebase.googleapis.com",
+    "firestore.googleapis.com",
+    "firebaserules.googleapis.com",
+    "identitytoolkit.googleapis.com",
+    "pubsub.googleapis.com",
+    "run.googleapis.com",
+    "cloudfunctions.googleapis.com",
+    "vpcaccess.googleapis.com",
+    "storage.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "eventarc.googleapis.com",
+    "secretmanager.googleapis.com",
+    "firebasehosting.googleapis.com"
+  ]
+}
+
+resource "google_project_service" "services" {
+  for_each           = toset(local.services)
+  project            = var.project_id
+  service            = each.key
+  disable_on_destroy = false
+}
+
+# Enable Firebase on the GCP project
+resource "google_firebase_project" "default" {
+  provider   = google-beta
+  project    = var.project_id
+  depends_on = [google_project_service.services["firebase.googleapis.com"]]
+}
+
+# Identity Platform needs time to initialize after Firebase is enabled.
+resource "time_sleep" "wait_for_identity_platform" {
+  depends_on      = [google_firebase_project.default]
+  create_duration = "90s"
+}
+
+# Register the Web Application under the Firebase project
+resource "google_firebase_web_app" "default" {
+  provider     = google-beta
+  project      = var.project_id
+  display_name = "Hire Lens Web Dashboard"
+  depends_on   = [time_sleep.wait_for_identity_platform]
+}
+
+# Firebase Hosting site (custom domain can be attached later in Firebase console)
+resource "google_firebase_hosting_site" "default" {
+  provider   = google-beta
+  project    = var.project_id
+  site_id    = var.project_id
+  depends_on = [google_firebase_project.default]
+}
+
+data "google_project" "project" {
+  project_id = var.project_id
+}

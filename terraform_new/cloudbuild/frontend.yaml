@@ -1,0 +1,41 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_IMAGE}
+      - --build-arg
+      - VITE_FIREBASE_API_KEY=${_VITE_FIREBASE_API_KEY}
+      - --build-arg
+      - VITE_FIREBASE_AUTH_DOMAIN=${_VITE_FIREBASE_AUTH_DOMAIN}
+      - --build-arg
+      - VITE_FIREBASE_PROJECT_ID=${_VITE_FIREBASE_PROJECT_ID}
+      - --build-arg
+      - VITE_FIREBASE_STORAGE_BUCKET=${_VITE_FIREBASE_STORAGE_BUCKET}
+      - --build-arg
+      - VITE_FIREBASE_MESSAGING_SENDER_ID=${_VITE_FIREBASE_MESSAGING_SENDER_ID}
+      - --build-arg
+      - VITE_FIREBASE_APP_ID=${_VITE_FIREBASE_APP_ID}
+      - --build-arg
+      - VITE_GEMINI_API_KEY=${_VITE_GEMINI_API_KEY}
+      - --build-arg
+      - VITE_MODEL_PROVIDER=${_VITE_MODEL_PROVIDER}
+      - --build-arg
+      - VITE_INFERENCE_URL=${_VITE_INFERENCE_URL}
+      - --build-arg
+      - VITE_TELEGRAM_BOT_USERNAME=${_VITE_TELEGRAM_BOT_USERNAME}
+      - .
+images:
+  - ${_IMAGE}
+substitutions:
+  _IMAGE: us-docker.pkg.dev/cloudrun/container/hello:latest
+  _VITE_FIREBASE_API_KEY: ""
+  _VITE_FIREBASE_AUTH_DOMAIN: ""
+  _VITE_FIREBASE_PROJECT_ID: ""
+  _VITE_FIREBASE_STORAGE_BUCKET: ""
+  _VITE_FIREBASE_MESSAGING_SENDER_ID: ""
+  _VITE_FIREBASE_APP_ID: ""
+  _VITE_GEMINI_API_KEY: ""
+  _VITE_MODEL_PROVIDER: gemini
+  _VITE_INFERENCE_URL: ""
+  _VITE_TELEGRAM_BOT_USERNAME: ""

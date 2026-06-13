@@ -1,0 +1,15 @@
+project_name = "hirelens"
+environment  = "dev"
+location     = "westeurope"
+cosmos_location = "polandcentral"
+
+tags = {
+  project = "hire-lens"
+  owner   = "your-name"
+  managed = "terraform"
+}
+
+# Optional overrides
+# function_app_name = "func-hirelens-dev"
+# model_app_name    = "model-hirelens-dev"
+# model_image       = "ghcr.io/your-org/hire-lens-model:latest"

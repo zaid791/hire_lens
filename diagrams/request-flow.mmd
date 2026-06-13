@@ -1,0 +1,19 @@
+sequenceDiagram
+  participant HR as HR Recruiter
+  participant Bot as Telegram Bot
+  participant API as Azure Functions
+  participant GitHub as GitHub API
+  participant Model as Qwen Service
+  participant DB as Cosmos DB
+  participant Notify as Service Bus/Worker
+
+  HR->>Bot: /analyze github-user
+  Bot->>API: webhook update
+  API->>GitHub: fetch public profile data
+  GitHub-->>API: profile data
+  API->>Model: summarize and score
+  Model-->>API: structured analysis
+  API->>DB: save report/session
+  API-->>Bot: return concise result
+  API->>Notify: schedule reminder if needed
+  Notify-->>API: status/ack

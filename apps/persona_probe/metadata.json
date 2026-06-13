@@ -1,0 +1,5 @@
+{
+  "name": "Remix: PersonaProbe",
+  "description": "An AI tool that fetches a GitHub user\u0027s public profile and generates a developer personality analysis using the Gemini API.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,17 @@
+flowchart LR
+  U[HR Recruiter] --> T[Telegram Bot]
+  T --> F[Azure Functions API]
+  F --> A[Auth Service]
+  F --> P[Profile Analysis Service]
+  F --> M[Model Inference Service\nQwen on Azure Container Apps]
+  F --> J[Job Match Service]
+  F --> R[Report Service]
+  P --> G[(GitHub Public API)]
+  M --> C[(Cosmos DB)]
+  R --> C
+  A --> C
+  F --> C
+  F --> B[(Blob Storage)]
+  F --> S[(Service Bus)]
+  S --> N[Notification Worker]
+  F --> O[Application Insights / Azure Monitor]
